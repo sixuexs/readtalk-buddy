@@ -1,0 +1,70 @@
+{
+	"pages": [
+		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": "首页"
+			}
+		},
+		{
+			"path": "pages/social/social",
+			"style": {
+				"navigationBarTitleText": "社交记录"
+			}
+		},
+		{
+			"path": "pages/relation/relation",
+			"style": {
+				"navigationBarTitleText": "关系图谱"
+			}
+		},
+		{
+			"path": "pages/simulation/simulation",
+			"style": {
+				"navigationBarTitleText": "情景模拟"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "个人中心",
+				"navigationBarBackgroundColor": "#ffffff"
+			}
+		}
+	],
+	"tabBar": {
+		"custom": true,
+		"color": "#999999",
+		"selectedColor": "#007AFF",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/home/home",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/social/social",
+				"text": "社交记录"
+			},
+			{
+				"pagePath": "pages/relation/relation",
+				"text": "关系图谱"
+			},
+			{
+				"pagePath": "pages/simulation/simulation",
+				"text": "情景模拟"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "个人中心"
+			}
+		]
+	},
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "阅谈智伴",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	}
+}
