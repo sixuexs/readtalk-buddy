@@ -37,34 +37,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
-import { onHide, onShow } from '@dcloudio/uni-app'
+import { ref, onMounted, onUnmounted } from 'vue'
+
+// 模块级标志：同一应用会话内所有页面实例共享，入场动画只播一次
+let hasEntered = false
 
 // 悬浮按钮展开/收起状态
 const open = ref(false)
 // 入场动画开关
 const showEnter = ref(false)
 
-// 触发起始入场动画（通过重置再启用实现）
-function triggerEnter() {
-  showEnter.value = false
-  nextTick(() => {
-    showEnter.value = true
+if (!hasEntered) {
+  // 首个页面挂载：播放入场动画
+  hasEntered = true
+  onMounted(() => {
+    setTimeout(() => {
+      showEnter.value = true
+    }, 200)
   })
+} else {
+  // 后续页面挂载：直接显示，不再重复动画
+  showEnter.value = true
 }
 
-// 首次渲染时播放入场动画
-triggerEnter()
-
-// 页面显示时重置状态并重新入场
-onShow(() => {
+// 监听 tab 切换，自动收起展开状态（带 CSS transition 自然过渡）
+function collapseOpen() {
   open.value = false
-  triggerEnter()
-})
-
-// 页面隐藏时收起按钮，避免切换到其他页面时仍展开
-onHide(() => {
-  open.value = false
+}
+uni.$on('tab-switch', collapseOpen)
+onUnmounted(() => {
+  uni.$off('tab-switch', collapseOpen)
 })
 
 // 子按钮列表：扫码连接、沟通辅助

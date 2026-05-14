@@ -109,11 +109,19 @@ onShow(() => {
   syncActiveIndex()
 })
 
-// 点击 tab 项，使用 switchTab 跳转到对应页面
+// 点击 tab 项，先通知全局收起 FAB，等过渡动画播完再跳转
+let isSwitching = false
 function handleTabClick(item: typeof tabList[0]) {
-  uni.switchTab({
-    url: item.pagePath,
-  })
+  if (isSwitching) return
+  isSwitching = true
+  uni.$emit('tab-switch')
+  // 延迟 300ms 让 FAB 的 CSS transition（0.35s）有足够时间播完收起动画
+  setTimeout(() => {
+    uni.switchTab({
+      url: item.pagePath,
+    })
+    isSwitching = false
+  }, 300)
 }
 </script>
 
