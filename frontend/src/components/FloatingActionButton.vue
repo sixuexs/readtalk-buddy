@@ -7,7 +7,7 @@
   />
 
   <!-- 按钮容器 -->
-  <view class="fab-container" :class="{ 'fab-container--enter': showEnter }">
+  <view class="fab-container">
     <!-- 子按钮 -->
     <view
       v-for="item in subButtons"
@@ -39,26 +39,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 
-// 模块级标志：同一应用会话内所有页面实例共享，入场动画只播一次
-let hasEntered = false
-
 // 悬浮按钮展开/收起状态
 const open = ref(false)
-// 入场动画开关
-const showEnter = ref(false)
-
-if (!hasEntered) {
-  // 首个页面挂载：播放入场动画
-  hasEntered = true
-  onMounted(() => {
-    setTimeout(() => {
-      showEnter.value = true
-    }, 200)
-  })
-} else {
-  // 后续页面挂载：直接显示，不再重复动画
-  showEnter.value = true
-}
 
 // 监听 tab 切换，自动收起展开状态（带 CSS transition 自然过渡）
 function collapseOpen() {
@@ -110,22 +92,6 @@ function handleSubClick(item: { key: string; label: string }) {
   width: 100rpx;
   height: 100rpx;
   z-index: 200;
-}
-
-/* 入场动效 */
-.fab-container--enter .fab {
-  animation: fab-enter 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes fab-enter {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
 }
 
 /* ========== 子按钮 ========== */
