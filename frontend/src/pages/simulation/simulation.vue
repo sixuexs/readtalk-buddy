@@ -172,6 +172,7 @@ const otherAvatar = '/static/头像示例/开心鸭.jpeg'
 const selfAvatar = '/static/头像示例/v2-9c5597621d3d2d2070f30633ada5822a_r.jpg'
 
 const messages = reactive<Message[]>([])
+const sessionId = ref('')
 const inputText = ref('')
 const scrollIntoId = ref('msg-anchor')
 const inputRef = ref<{ focus: () => void } | null>(null)
@@ -190,17 +191,17 @@ onMounted(() => {
   })
 })
 
-// 开始模拟：调 startSimulation 获取开场白，切换到聊天页
+// 开始模拟：调 startSimulation 获取开场白 + sessionId
 async function handleStart() {
   if (!canStart.value) return
 
   try {
-    // TODO: 对接真实 API 后启用
     const res = await startSimulation({
       theme: selectedTheme.value,
       personality: selectedPersonality.value,
     })
     if (res.code === 0) {
+      sessionId.value = res.data.sessionId
       msgIdCounter = 1
       messages.length = 0
       messages.push({
@@ -212,7 +213,8 @@ async function handleStart() {
       })
     }
   } catch {
-    // 接口异常时用本地备用开场白
+    // 后端不可用时本地降级
+    sessionId.value = 'local-' + Date.now()
     msgIdCounter = 1
     messages.length = 0
     messages.push({
@@ -250,7 +252,7 @@ async function handleSend() {
   })
 
   try {
-    const res = await sendMessage({ scenarioId: 'sim', message: text })
+    const res = await sendMessage({ scenarioId: sessionId.value, message: text })
     if (res.code === 0) {
       msgIdCounter++
       messages.push({
