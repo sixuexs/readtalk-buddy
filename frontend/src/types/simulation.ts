@@ -66,10 +66,11 @@ export interface StartSimulationReq {
   personality: string
 }
 
-// POST /api/simulation/start 响应体（含对方开场白）
+// POST /api/simulation/start 响应体（含 sessionId 与开场白）
 export interface StartSimulationRes {
   code: number
   data: {
+    sessionId: string
     greeting: {
       content: string
       timestamp: number
