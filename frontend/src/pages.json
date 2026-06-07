@@ -25,6 +25,13 @@
 			}
 		},
 		{
+			"path": "pages/social/chat-history",
+			"style": {
+				"navigationBarTitleText": "聊天记录",
+				"navigationBarBackgroundColor": "#ffffff"
+			}
+		},
+		{
 			"path": "pages/profile/profile",
 			"style": {
 				"navigationBarTitleText": "个人中心",

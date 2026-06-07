@@ -47,4 +47,10 @@ public class SimulationController {
     public ApiResponse<?> history(@RequestParam String sessionId) {
         return ApiResponse.ok(service.getHistory(sessionId));
     }
+
+    // GET /api/simulation/sessions — 获取所有会话摘要列表
+    @GetMapping("/sessions")
+    public ApiResponse<?> sessions() {
+        return ApiResponse.ok(service.getSessionList());
+    }
 }

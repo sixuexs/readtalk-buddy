@@ -77,3 +77,19 @@ export interface StartSimulationRes {
     }
   }
 }
+
+// 会话摘要 —— 用于社交记录列表
+export interface SessionSummary {
+  sessionId: string
+  theme: string
+  personality: string
+  score: number | null
+  messageCount: number
+  lastActivity: number
+}
+
+// GET /api/simulation/sessions 响应体
+export interface SessionListRes {
+  code: number
+  data: SessionSummary[]
+}
