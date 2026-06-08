@@ -53,8 +53,8 @@ onUnmounted(() => {
 
 // 子按钮列表：扫码连接、沟通辅助
 const subButtons = [
-  { key: 'scan', label: '扫码连接', icon: '扫', color: '#4A90D9' },
-  { key: 'assist', label: '沟通辅助', icon: '辅', color: '#5B8DEF' },
+  { key: 'scan', label: '扫码连接', icon: '扫', color: '#6BB9D6' },
+  { key: 'assist', label: '沟通辅助', icon: '辅', color: '#7EC4A8' },
 ]
 
 // 子按钮点击：收起菜单并显示 Toast 提示（后续替换为实际跳转逻辑）
@@ -154,11 +154,11 @@ function handleSubClick(item: { key: string; label: string }) {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5B8DEF, #3B6FD4);
+  background: linear-gradient(145deg, #6BB9D6, #7EC4A8);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(59, 111, 212, 0.4);
+  box-shadow: 0 6rpx 20rpx rgba(107, 185, 214, 0.3);
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 201;
 }
@@ -168,7 +168,7 @@ function handleSubClick(item: { key: string; label: string }) {
   height: 72%;
   top: 14%;
   left: 14%;
-  box-shadow: 0 4rpx 12rpx rgba(59, 111, 212, 0.3);
+  box-shadow: 0 4rpx 12rpx rgba(107, 185, 214, 0.22);
 }
 
 .fab-icon {

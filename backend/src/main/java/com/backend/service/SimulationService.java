@@ -5,7 +5,6 @@ import com.backend.model.*;
 import com.backend.store.ConversationStore;
 import org.springframework.stereotype.Service;
 
-import com.backend.model.SessionSummary;
 import java.util.*;
 
 @Service
@@ -36,7 +35,7 @@ public class SimulationService {
         return info;
     }
 
-    // 开始模拟：构建 system prompt，调用 DeepSeek 获取开场白，持久化会话
+    // 开始模拟：构建 system prompt，调用 DeepSeek 获取开场白
     public Map<String, Object> startSimulation(StartRequest req) {
         String sessionId = UUID.randomUUID().toString();
         String systemPrompt = buildSystemPrompt(req.getTheme(), req.getPersonality());
@@ -48,11 +47,12 @@ public class SimulationService {
         String greeting = deepSeekClient.chat(messages);
 
         long now = System.currentTimeMillis();
-        ChatMessage greetingMsg = new ChatMessage("1", "other", "", greeting, now);
+        List<ChatMessage> history = new ArrayList<>();
 
-        // 持久化：保存会话信息、systemPrompt 和第一条消息
-        store.createSession(sessionId, req.getTheme(), req.getPersonality(),
-                systemPrompt, greetingMsg);
+        ChatMessage greetingMsg = new ChatMessage("1", "other", "", greeting, now);
+        history.add(greetingMsg);
+
+        store.put(sessionId, history);
 
         Map<String, Object> data = new HashMap<>();
         data.put("sessionId", sessionId);
@@ -60,21 +60,22 @@ public class SimulationService {
         return data;
     }
 
-    // 发送消息：从 MongoDB 加载历史，拼接后调用 DeepSeek，持久化新消息
+    // 发送消息：拼接历史，调用 DeepSeek 获取回复
     public Map<String, Object> sendMessage(SendRequest req) {
         String sessionId = req.getScenarioId();
-        List<ChatMessage> history = store.getMessages(sessionId);
+        List<ChatMessage> history = store.get(sessionId);
 
-        // 构建用户消息并持久化
+        // 追加用户消息到历史
         long now = System.currentTimeMillis();
         ChatMessage userMsg = new ChatMessage(
                 String.valueOf(history.size() + 1),
                 "self", "", req.getMessage(), now);
-        store.appendMessage(sessionId, userMsg);
-        history.add(userMsg); // 加入内存列表，用于构建 DeepSeek 请求
+        history.add(userMsg);
 
-        // 从数据库获取真实的 systemPrompt（修复之前硬编码 prompt 的问题）
-        String systemPrompt = store.getSystemPrompt(sessionId);
+        // 构建 DeepSeek messages 数组
+        // 第一条消息是 system prompt，后续是 user/assistant 交替
+        // 从存储中取第一个消息作为 system prompt（我们没直接存 system prompt，这里简化处理）
+        String systemPrompt = "你正在参与一个情景模拟对话。请自然、友好地回复对方，保持对话流畅。";
         List<Map<String, String>> deepseekMessages = new ArrayList<>();
         deepseekMessages.add(Map.of("role", "system", "content", systemPrompt));
 
@@ -89,7 +90,7 @@ public class SimulationService {
         ChatMessage replyMsg = new ChatMessage(
                 String.valueOf(history.size() + 1),
                 "other", "", reply, replyTs);
-        store.appendMessage(sessionId, replyMsg);
+        history.add(replyMsg);
 
         Map<String, Object> data = new HashMap<>();
         data.put("reply", new MessageReply(reply, replyTs));
@@ -98,15 +99,10 @@ public class SimulationService {
 
     // 获取会话历史
     public Map<String, Object> getHistory(String sessionId) {
-        List<ChatMessage> history = store.getMessages(sessionId);
+        List<ChatMessage> history = store.get(sessionId);
         Map<String, Object> data = new HashMap<>();
         data.put("messages", history);
         return data;
-    }
-
-    // 获取所有会话摘要列表
-    public List<SessionSummary> getSessionList() {
-        return store.getSessionSummaries();
     }
 
     // 根据主题和性格构建角色 system prompt

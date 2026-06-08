@@ -6,7 +6,6 @@ import type {
   ConfigRes,
   StartSimulationReq,
   StartSimulationRes,
-  SessionListRes,
 } from '@/types/simulation'
 
 const BASE_URL = 'http://localhost:8080'
@@ -70,18 +69,6 @@ export function getScenario(scenarioId: string): Promise<ScenarioRes> {
       method: 'GET',
       data: { scenarioId },
       success: (res) => resolve(res.data as ScenarioRes),
-      fail: reject,
-    })
-  })
-}
-
-// 获取所有会话摘要列表
-export function getSessions(): Promise<SessionListRes> {
-  return new Promise((resolve, reject) => {
-    uni.request({
-      url: `${BASE_URL}/api/simulation/sessions`,
-      method: 'GET',
-      success: (res) => resolve(res.data as SessionListRes),
       fail: reject,
     })
   })

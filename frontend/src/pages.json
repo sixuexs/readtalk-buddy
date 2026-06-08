@@ -25,17 +25,9 @@
 			}
 		},
 		{
-			"path": "pages/social/chat-history",
-			"style": {
-				"navigationBarTitleText": "聊天记录",
-				"navigationBarBackgroundColor": "#ffffff"
-			}
-		},
-		{
 			"path": "pages/profile/profile",
 			"style": {
-				"navigationBarTitleText": "个人中心",
-				"navigationBarBackgroundColor": "#ffffff"
+				"navigationBarTitleText": "个人中心"
 			}
 		}
 	],
@@ -72,6 +64,6 @@
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "阅谈智伴",
 		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
+		"backgroundColor": "#F4F8FB"
 	}
 }

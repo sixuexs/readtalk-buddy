@@ -12,22 +12,7 @@
       "Bash(git pull *)",
       "Bash(git *)",
       "Bash(mv dist *)",
-      "Bash(echo \"exit: $?\")",
-      "Bash(npm install *)",
-      "Bash(where claude *)",
-      "Bash(C:\\\\Users\\\\27342\\\\AppData\\\\Roaming\\\\npm\\\\claude.cmd *)",
-      "Bash(C:/Users/27342/AppData/Roaming/npm/claude.cmd *)",
-      "Bash(claude *)",
-      "Skill(update-config)",
-      "Bash(npm list *)",
-      "Bash(powershell.exe *)",
-      "Bash(./mvnw compile *)",
-      "Bash(where mongod *)",
-      "Bash(where mongosh *)",
-      "Read(//c/Program Files/MongoDB/**)",
-      "Read(//d//**)",
-      "Bash(powershell *)",
-      "Bash(npx vue-tsc *)"
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
