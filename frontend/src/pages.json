@@ -15,7 +15,7 @@
 		{
 			"path": "pages/relation/relation",
 			"style": {
-				"navigationBarTitleText": "关系图谱"
+				"navigationBarTitleText": "关系星图"
 			}
 		},
 		{

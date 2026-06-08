@@ -81,8 +81,8 @@ const tabList = [
   },
 ]
 
-const color = '#999999'
-const selectedColor = '#007AFF'
+const color = '#A8BAC4'
+const selectedColor = '#6BB9D6'
 
 // 当前激活的 tab 索引
 const currentIndex = ref(0)
@@ -181,17 +181,18 @@ function handleTabClick(item: typeof tabList[0]) {
   width: 110rpx;
   height: 110rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #B3D9FF, #aae2b4);
+  background: linear-gradient(145deg, #A8D8EC, #7EC4A8);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10;
   transition: box-shadow 0.3s ease;
+  box-shadow: 0 4rpx 16rpx rgba(107, 185, 214, 0.3);
 }
 
 .middle-btn--active {
-  box-shadow: 0 6rpx 20rpx rgba(0, 122, 255, 0.4);
+  box-shadow: 0 6rpx 20rpx rgba(107, 185, 214, 0.4);
 }
 
 .middle-btn-icon-wrap {
@@ -218,5 +219,39 @@ function handleTabClick(item: typeof tabList[0]) {
   height: constant(safe-area-inset-bottom);
   height: env(safe-area-inset-bottom);
   background-color: #ffffff;
+}
+
+/* 宽屏：底栏铺满宽度，避免「手机条」违和感 */
+@media (min-width: 768px) {
+  .tab-bar {
+    height: 56px;
+    padding: 0 24px;
+    max-width: none;
+  }
+
+  .tab-icon {
+    width: 22px;
+    height: 22px;
+    margin-bottom: 4px;
+  }
+
+  .tab-text {
+    font-size: 12px;
+  }
+
+  .middle-btn {
+    width: 64px;
+    height: 64px;
+    top: -20px;
+  }
+
+  .middle-btn-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .middle-btn-text {
+    font-size: 11px;
+  }
 }
 </style>
