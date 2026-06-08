@@ -13,7 +13,9 @@
       :id="canvasId"
       type="2d"
       class="relation-chart__surface"
-      @touchstart="noop"
+      @touchstart="onCanvasTouch('touchStart', $event)"
+      @touchmove="onCanvasTouch('touchMove', $event)"
+      @touchend="onCanvasTouch('touchEnd', $event)"
     />
     <!-- #endif -->
   </view>
@@ -25,6 +27,10 @@ import * as echarts from 'echarts'
 import type { RelationContact } from '@/types/relation'
 import { buildRelationGraphOption } from '@/utils/relationGraph'
 import { SELF_NODE_NAME } from '@/data/mockRelations'
+
+// #ifndef H5
+import WxCanvas from '@/utils/wx-canvas'
+// #endif
 
 const props = withDefaults(
   defineProps<{
@@ -51,6 +57,7 @@ const domId = `relation-graph-${uid}`
 const canvasId = `relation-canvas-${uid}`
 
 let chart: echarts.ECharts | null = null
+let wxCanvasInstance: InstanceType<typeof WxCanvas> | null = null
 /** 布局计算用尺寸（选中高亮时不应随侧栏抖动重算） */
 let layoutWidth = 300
 let layoutHeight = 300
@@ -60,6 +67,12 @@ let resizeTimer: ReturnType<typeof setTimeout> | null = null
 const MIN_CHART_SIZE = 280
 
 function noop() {}
+
+function onCanvasTouch(wxName: string, e: any) {
+  if (wxCanvasInstance?.event?.[wxName]) {
+    wxCanvasInstance.event[wxName](e)
+  }
+}
 
 function createQuery() {
   const proxy = instance?.proxy
@@ -192,25 +205,34 @@ async function initCanvas() {
       .select(`#${canvasId}`)
       .fields({ node: true, size: true }, () => {})
       .exec((res) => {
-        const info = res?.[0] as { node?: HTMLCanvasElement; width?: number; height?: number }
-        const canvas = info?.node
-        if (!canvas) {
+        const info = res?.[0] as {
+          node?: { getContext: (type: string) => CanvasRenderingContext2D }
+          width?: number
+          height?: number
+        }
+        const canvasNode = info?.node
+        if (!canvasNode) {
           resolve()
           return
         }
         const dpr = uni.getSystemInfoSync().pixelRatio || 2
         const w = info.width || size.width
         const h = info.height || size.height
-        canvas.width = w * dpr
-        canvas.height = h * dpr
+        canvasNode.width = w * dpr
+        canvasNode.height = h * dpr
         layoutWidth = w
         layoutHeight = h
+
+        const ctx = canvasNode.getContext('2d')
+        wxCanvasInstance = new WxCanvas(ctx, canvasId, true, canvasNode)
+
         chart?.dispose()
-        chart = echarts.init(canvas, null, {
+        chart = echarts.init(wxCanvasInstance as any, null, {
           width: w,
           height: h,
           devicePixelRatio: dpr,
         })
+        wxCanvasInstance.setChart(chart)
         rebuildGraph()
         resolve()
       })
