@@ -7,6 +7,7 @@ import type {
   StartSimulationReq,
   StartSimulationRes,
   SessionListRes,
+  ScoreRes,
 } from '@/types/simulation'
 
 const BASE_URL = 'http://localhost:8080'
@@ -70,6 +71,18 @@ export function getScenario(scenarioId: string): Promise<ScenarioRes> {
       method: 'GET',
       data: { scenarioId },
       success: (res) => resolve(res.data as ScenarioRes),
+      fail: reject,
+    })
+  })
+}
+
+// AI 评分
+export function scoreConversation(sessionId: string): Promise<ScoreRes> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/score?sessionId=${sessionId}`,
+      method: 'POST',
+      success: (res) => resolve(res.data as ScoreRes),
       fail: reject,
     })
   })

@@ -64,6 +64,7 @@ const mockSessions: SessionSummary[] = [
     score: 85,
     messageCount: 6,
     lastActivity: Date.now() - 3600000,
+    evaluation: null,
   },
   {
     sessionId: 'demo-2',
@@ -72,6 +73,7 @@ const mockSessions: SessionSummary[] = [
     score: 72,
     messageCount: 4,
     lastActivity: Date.now() - 86400000,
+    evaluation: null,
   },
   {
     sessionId: 'demo-3',
@@ -80,6 +82,7 @@ const mockSessions: SessionSummary[] = [
     score: 91,
     messageCount: 8,
     lastActivity: Date.now() - 172800000,
+    evaluation: null,
   },
 ]
 

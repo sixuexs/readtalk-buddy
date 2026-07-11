@@ -39,6 +39,7 @@ export interface HistoryRes {
   code: number
   data: {
     messages: Message[]
+    evaluation?: EvaluationSummary & { score: number }
   }
 }
 
@@ -78,6 +79,25 @@ export interface StartSimulationRes {
   }
 }
 
+// POST /api/simulation/score 响应体
+export interface ScoreRes {
+  code: number
+  data: {
+    score: number
+    evaluation: EvaluationSummary
+  }
+}
+
+// 评分详情
+export interface EvaluationSummary {
+  expression: number
+  affinity: number
+  logic: number
+  comment: string
+  strengths: string[]
+  suggestions: string[]
+}
+
 // 会话摘要 —— 用于社交记录列表
 export interface SessionSummary {
   sessionId: string
@@ -86,6 +106,7 @@ export interface SessionSummary {
   score: number | null
   messageCount: number
   lastActivity: number
+  evaluation: EvaluationSummary | null
 }
 
 // GET /api/simulation/sessions 响应体

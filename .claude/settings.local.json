@@ -27,7 +27,16 @@
       "Read(//c/Program Files/MongoDB/**)",
       "Read(//d//**)",
       "Bash(powershell *)",
-      "Bash(npx vue-tsc *)"
+      "Bash(npx vue-tsc *)",
+      "Bash(curl -s --max-time 3 http://localhost:8080/api/simulation/sessions)",
+      "Bash(curl -s --max-time 3 http://localhost:8080/api/simulation/config)",
+      "Bash(curl *)",
+      "Bash(mongod --version)",
+      "Bash(\"C:/Program Files/MongoDB/Server/8.2/bin/mongod\" --dbpath=\"C:/data/db\" --logpath=\"C:/data/log/mongodb.log\" --logappend)",
+      "Bash(C:/Program Files/MongoDB/Server/8.2/bin/mongod *)",
+      "Bash(./mvnw clean *)",
+      "Bash(./mvnw dependency:tree -Dincludes=org.springframework.ai:spring-ai-core,org.springframework.ai:spring-ai-client-chat)",
+      "Bash(jar -tf ~/.m2/repository/org/springframework/ai/spring-ai-deepseek/1.1.2/spring-ai-deepseek-1.1.2.jar)"
     ]
   }
 }

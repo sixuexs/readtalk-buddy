@@ -4,6 +4,7 @@ import com.backend.model.ApiResponse;
 import com.backend.model.SendRequest;
 import com.backend.model.StartRequest;
 import com.backend.service.SimulationService;
+import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -13,9 +14,11 @@ import java.util.Map;
 public class SimulationController {
 
     private final SimulationService service;
+    private final ReactAgent simulationAgent;
 
-    public SimulationController(SimulationService service) {
+    public SimulationController(SimulationService service, ReactAgent simulationAgent) {
         this.service = service;
+        this.simulationAgent = simulationAgent;
     }
 
     // GET /api/simulation/config
@@ -52,5 +55,22 @@ public class SimulationController {
     @GetMapping("/sessions")
     public ApiResponse<?> sessions() {
         return ApiResponse.ok(service.getSessionList());
+    }
+
+    // POST /api/simulation/score?sessionId=xxx — AI 评分
+    @PostMapping("/score")
+    public ApiResponse<?> score(@RequestParam String sessionId) {
+        return ApiResponse.ok(service.scoreConversation(sessionId));
+    }
+
+    // POST /api/simulation/agent — 通过 ReactAgent 处理请求（演示多智能体架构）
+    @PostMapping("/agent")
+    public ApiResponse<?> agent(@RequestBody Map<String, Object> input) {
+        try {
+            var response = simulationAgent.call(input);
+            return ApiResponse.ok(Map.of("content", response.getText()));
+        } catch (Exception e) {
+            return ApiResponse.ok(Map.of("error", e.getMessage()));
+        }
     }
 }

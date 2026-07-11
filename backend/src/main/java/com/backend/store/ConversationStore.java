@@ -97,16 +97,45 @@ public class ConversationStore {
     public List<SessionSummary> getSessionSummaries() {
         List<ConversationDocument> docs = repo.findAllByOrderByCreatedAtDesc();
         return docs.stream()
-                .map(doc -> new SessionSummary(
-                        doc.getId(),
-                        doc.getTheme(),
-                        doc.getPersonality(),
-                        doc.getScore(),
-                        doc.getMessages().size(),
-                        doc.getMessages().isEmpty() ? 0 :
-                                doc.getMessages().get(doc.getMessages().size() - 1).getTimestamp()
-                ))
+                .map(doc -> {
+                    SessionSummary s = new SessionSummary();
+                    s.setSessionId(doc.getId());
+                    s.setTheme(doc.getTheme());
+                    s.setPersonality(doc.getPersonality());
+                    s.setScore(doc.getScore());
+                    s.setMessageCount(doc.getMessages().size());
+                    s.setLastActivity(doc.getMessages().isEmpty() ? 0 :
+                            doc.getMessages().get(doc.getMessages().size() - 1).getTimestamp());
+                    s.setEvaluation(SessionSummary.EvaluationSummary.fromDocument(doc.getEvaluation()));
+                    return s;
+                })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 保存评分结果
+     */
+    /**
+     * 获取评分（如果有）
+     */
+    public Optional<Integer> getScore(String sessionId) {
+        return repo.findById(sessionId).map(ConversationDocument::getScore);
+    }
+
+    /**
+     * 获取详细评分（如果有）
+     */
+    public Optional<ConversationDocument.Evaluation> getEvaluation(String sessionId) {
+        return repo.findById(sessionId).map(ConversationDocument::getEvaluation);
+    }
+
+    public void saveScore(String sessionId, int score, ConversationDocument.Evaluation evaluation) {
+        repo.findById(sessionId).ifPresent(doc -> {
+            doc.setScore(score);
+            doc.setEvaluation(evaluation);
+            doc.setUpdatedAt(LocalDateTime.now());
+            repo.save(doc);
+        });
     }
 
     private MessageItem toMessageItem(ChatMessage dto, int order) {

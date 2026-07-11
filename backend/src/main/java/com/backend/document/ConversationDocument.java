@@ -25,10 +25,27 @@ public class ConversationDocument {
 
     private Integer score;                 // 社交能力评分 (0-100)，null 表示未评分
 
+    private Evaluation evaluation;         // 详细评分（维度分 + 评语 + 标签）
+
     private List<MessageItem> messages = new ArrayList<>();
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /**
+     * 评分详情
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Evaluation {
+        private int expression;            // 表达力 (0-100)
+        private int affinity;              // 亲和力 (0-100)
+        private int logic;                 // 逻辑性 (0-100)
+        private String comment;            // AI 评语
+        private List<String> strengths;    // 优点标签
+        private List<String> suggestions;  // 改进建议标签
+    }
 
     /**
      * 内嵌消息子文档

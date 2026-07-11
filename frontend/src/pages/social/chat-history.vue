@@ -1,7 +1,18 @@
 <template>
   <view class="page-container">
+      <!-- 未评分提示 -->
+      <view v-if="!evaluation && !scoring" class="score-pending">
+        <text class="score-pending__text">暂未评分</text>
+        <view class="score-pending__btn" @click="handleScore">
+          <text>AI 智能评分</text>
+        </view>
+      </view>
+      <view v-if="scoring" class="score-pending">
+        <text class="score-pending__text">AI 评分中...</text>
+      </view>
+
       <!-- 评分卡片 -->
-      <view class="score-card">
+      <view v-if="evaluation" class="score-card">
         <view class="score-card__header">
           <text class="score-card__title">社交评分</text>
         </view>
@@ -14,48 +25,43 @@
             <view class="dimension-item">
               <text class="dimension-label">表达力</text>
               <view class="dimension-bar">
-                <view class="dimension-bar__fill" style="width: 88%" />
+                <view class="dimension-bar__fill" :style="{ width: evaluation.expression + '%' }" />
               </view>
-              <text class="dimension-score">88</text>
+              <text class="dimension-score">{{ evaluation.expression }}</text>
             </view>
             <view class="dimension-item">
               <text class="dimension-label">亲和力</text>
               <view class="dimension-bar">
-                <view class="dimension-bar__fill dimension-bar__fill--warm" style="width: 82%" />
+                <view class="dimension-bar__fill dimension-bar__fill--warm" :style="{ width: evaluation.affinity + '%' }" />
               </view>
-              <text class="dimension-score">82</text>
+              <text class="dimension-score">{{ evaluation.affinity }}</text>
             </view>
             <view class="dimension-item">
               <text class="dimension-label">逻辑性</text>
               <view class="dimension-bar">
-                <view class="dimension-bar__fill dimension-bar__fill--green" style="width: 90%" />
+                <view class="dimension-bar__fill dimension-bar__fill--green" :style="{ width: evaluation.logic + '%' }" />
               </view>
-              <text class="dimension-score">90</text>
+              <text class="dimension-score">{{ evaluation.logic }}</text>
             </view>
           </view>
         </view>
       </view>
 
       <!-- 评语卡片 -->
-      <view class="comment-card">
+      <view v-if="evaluation" class="comment-card">
         <view class="comment-card__header">
           <text class="comment-card__title">AI 评语</text>
         </view>
         <view class="comment-card__body">
-          <text class="comment-card__text">
-            本次对话中，你在表达清晰度方面表现优秀，能够准确传达想法。建议在倾听对方观点时多一些耐心，适当使用共情语句来提升沟通效果。
-          </text>
+          <text class="comment-card__text">{{ evaluation.comment }}</text>
           <view class="comment-card__tags">
-            <view class="tag-group">
+            <view v-if="evaluation.strengths?.length" class="tag-group">
               <text class="tag-group__label">优点</text>
-              <text class="tag tag--positive">表达清晰</text>
-              <text class="tag tag--positive">态度积极</text>
-              <text class="tag tag--positive">逻辑严谨</text>
+              <text v-for="s in evaluation.strengths" :key="s" class="tag tag--positive">{{ s }}</text>
             </view>
-            <view class="tag-group">
+            <view v-if="evaluation.suggestions?.length" class="tag-group">
               <text class="tag-group__label">建议</text>
-              <text class="tag tag--suggest">多倾听对方</text>
-              <text class="tag tag--suggest">增加共情表达</text>
+              <text v-for="s in evaluation.suggestions" :key="s" class="tag tag--suggest">{{ s }}</text>
             </view>
           </view>
         </view>
@@ -110,13 +116,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getHistory } from '@/api/simulation'
-import type { Message } from '@/types/simulation'
+import { getHistory, scoreConversation } from '@/api/simulation'
+import type { Message, EvaluationSummary } from '@/types/simulation'
 
 const messages = ref<Message[]>([])
-const score = ref<number>(85) // 默认占位值
+const score = ref<number>(0)
+const evaluation = ref<EvaluationSummary | null>(null)
+const scoring = ref(false)
+let currentSessionId = ''
 
-// ===== 前端示例消息数据 =====
+// 保留 mock 数据作为开发时的 fallback（后端无评分时使用）
 const mockMessagesMap: Record<string, { score: number; messages: Message[] }> = {
   'demo-1': {
     score: 85,
@@ -155,19 +164,13 @@ const mockMessagesMap: Record<string, { score: number; messages: Message[] }> = 
 
 onLoad(async (query: any) => {
   const sessionId = query?.sessionId
+  currentSessionId = sessionId
   if (!sessionId) {
     uni.showToast({ title: '参数错误', icon: 'none' })
     return
   }
-  // 接收 score 参数，若无则使用默认占位值 85
-  if (query?.score) {
-    const parsed = Number(query.score)
-    if (!isNaN(parsed)) {
-      score.value = parsed
-    }
-  }
 
-  // 判断是否为示例数据
+  // 判断是否为 mock 数据（开发时使用）
   const mockData = mockMessagesMap[sessionId]
   if (mockData) {
     score.value = mockData.score
@@ -179,11 +182,35 @@ onLoad(async (query: any) => {
     const res = await getHistory(sessionId)
     if (res.code === 0 && res.data?.messages) {
       messages.value = res.data.messages
+      // 使用后端真实评分数据
+      if (res.data.evaluation) {
+        evaluation.value = res.data.evaluation
+      }
+      if (res.data.evaluation?.score != null) {
+        score.value = res.data.evaluation.score
+      }
     }
   } catch {
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
 })
+
+const handleScore = async () => {
+  if (!currentSessionId || scoring.value) return
+  scoring.value = true
+  try {
+    const res = await scoreConversation(currentSessionId)
+    if (res.code === 0 && res.data) {
+      score.value = res.data.score
+      evaluation.value = res.data.evaluation
+      uni.showToast({ title: '评分完成', icon: 'success' })
+    }
+  } catch {
+    uni.showToast({ title: '评分失败', icon: 'none' })
+  } finally {
+    scoring.value = false
+  }
+}
 
 const formatMsgTime = (ts: number): string => {
   if (!ts) return ''
@@ -194,6 +221,32 @@ const formatMsgTime = (ts: number): string => {
 </script>
 
 <style scoped>
+/* 评分按钮 */
+.score-pending {
+  margin: 24rpx;
+  padding: 40rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20rpx;
+}
+.score-pending__text {
+  font-size: 28rpx;
+  color: #999;
+}
+.score-pending__btn {
+  background: linear-gradient(135deg, #4A90D9, #5B8DEF);
+  padding: 16rpx 48rpx;
+  border-radius: 40rpx;
+}
+.score-pending__btn text {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
 .page-container {
   min-height: 100vh;
   background: #f0f0f0;
