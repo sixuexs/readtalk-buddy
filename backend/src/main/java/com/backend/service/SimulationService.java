@@ -1,9 +1,11 @@
 package com.backend.service;
 
+import com.backend.agent.AgentEvent;
 import com.backend.document.ConversationDocument;
 import com.backend.model.*;
 import com.backend.store.ConversationStore;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -18,10 +20,13 @@ public class SimulationService {
 
     private final ChatClient chatClient;
     private final ConversationStore store;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public SimulationService(ChatClient.Builder chatClientBuilder, ConversationStore store) {
+    public SimulationService(ChatClient.Builder chatClientBuilder, ConversationStore store,
+                             ApplicationEventPublisher eventPublisher) {
         this.chatClient = chatClientBuilder.build();
         this.store = store;
+        this.eventPublisher = eventPublisher;
     }
 
     // 获取可用配置
@@ -188,6 +193,9 @@ public class SimulationService {
             ConversationDocument.Evaluation evaluation = new ConversationDocument.Evaluation(
                     expression, affinity, logic, comment, strengths, suggestions);
             store.saveScore(sessionId, totalScore, evaluation);
+
+            // 发布评分完成事件 → UserProfileAgent 等订阅者自动更新
+            eventPublisher.publishEvent(new AgentEvent.ScoringCompleted(sessionId, totalScore));
 
             Map<String, Object> response = new HashMap<>();
             response.put("score", totalScore);

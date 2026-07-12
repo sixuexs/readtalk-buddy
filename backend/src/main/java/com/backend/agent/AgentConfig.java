@@ -1,6 +1,5 @@
 package com.backend.agent;
 
-import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.deepseek.DeepSeekChatModel;
@@ -13,7 +12,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.support.RetryTemplate;
 
 /**
- * 阅谈智伴多智能体配置
+ * 阅谈智伴多智能体共享基础设施配置
+ * <p>
+ * 提供所有 Agent 公用的 Bean：ChatModel、ChatClient.Builder、ToolCallingManager
+ * 各特化 Agent 在自己的 @Component 中构建 ReactAgent
  */
 @Configuration
 public class AgentConfig {
@@ -33,17 +35,7 @@ public class AgentConfig {
     @Value("${deepseek.api.max-tokens:1024}")
     private int maxTokens;
 
-    /**
-     * ChatClient.Builder Bean（供 SimulationService 使用）
-     */
-    @Bean
-    public ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
-        return ChatClient.builder(chatModel);
-    }
-
-    /**
-     * DeepSeek ChatModel Bean（替代之前的 OpenAI 适配器）
-     */
+    /** DeepSeek ChatModel —— 所有 Agent 共享 */
     @Bean
     public ChatModel chatModel() {
         DeepSeekApi api = DeepSeekApi.builder()
@@ -60,32 +52,20 @@ public class AgentConfig {
         return DeepSeekChatModel.builder()
                 .deepSeekApi(api)
                 .defaultOptions(options)
-                .toolCallingManager(ToolCallingManager.builder().build())
+                .toolCallingManager(toolCallingManager())
                 .retryTemplate(RetryTemplate.builder().build())
                 .build();
     }
 
-    /**
-     * 模拟训练 Agent —— 负责情景模拟对话生成与评分
-     */
+    /** ChatClient.Builder —— SimulationService 等服务层使用 */
     @Bean
-    public ReactAgent simulationAgent(ChatModel chatModel, SimulationTools simulationTools) {
-        return ReactAgent.builder()
-                .name("simulation-agent")
-                .description("阅谈智伴模拟训练专家，负责情景对话生成与社交能力评分")
-                .systemPrompt("""
-                        你是阅谈智伴的模拟训练专家 Agent。你的职责包括：
-                        1. 根据用户选择的主题和角色性格，生成自然、沉浸式的模拟对话
-                        2. 在对话结束后，对用户的社交沟通能力进行多维度评分
-                        3. 提供具体、可操作的改进建议
+    public ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+        return ChatClient.builder(chatModel);
+    }
 
-                        评分维度：
-                        - 表达力：语言是否清晰流畅、表达是否准确
-                        - 亲和力：是否展现友善、共情和积极倾听
-                        - 逻辑性：思维是否清晰、条理是否分明
-                        """)
-                .model(chatModel)
-                .methodTools(simulationTools)
-                .build();
+    /** ToolCallingManager —— Agent 工具调用管理 */
+    @Bean
+    public ToolCallingManager toolCallingManager() {
+        return ToolCallingManager.builder().build();
     }
 }

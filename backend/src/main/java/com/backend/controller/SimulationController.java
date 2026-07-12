@@ -1,11 +1,19 @@
 package com.backend.controller;
 
+import com.backend.agent.AgentRegistry;
+import com.backend.agent.CommAssistTools;
+import com.backend.agent.IceBreakTools;
+import com.backend.agent.RelationTools;
+import com.backend.agent.UserProfileTools;
 import com.backend.model.ApiResponse;
 import com.backend.model.SendRequest;
 import com.backend.model.StartRequest;
 import com.backend.service.SimulationService;
-import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import java.util.Map;
 
@@ -14,11 +22,21 @@ import java.util.Map;
 public class SimulationController {
 
     private final SimulationService service;
-    private final ReactAgent simulationAgent;
+    private final AgentRegistry registry;
+    private final UserProfileTools profileTools;
+    private final IceBreakTools iceBreakTools;
+    private final RelationTools relationTools;
+    private final CommAssistTools commAssistTools;
 
-    public SimulationController(SimulationService service, ReactAgent simulationAgent) {
+    public SimulationController(SimulationService service, AgentRegistry registry,
+                                UserProfileTools profileTools, IceBreakTools iceBreakTools,
+                                RelationTools relationTools, CommAssistTools commAssistTools) {
         this.service = service;
-        this.simulationAgent = simulationAgent;
+        this.registry = registry;
+        this.profileTools = profileTools;
+        this.iceBreakTools = iceBreakTools;
+        this.relationTools = relationTools;
+        this.commAssistTools = commAssistTools;
     }
 
     // GET /api/simulation/config
@@ -66,11 +84,106 @@ public class SimulationController {
     // POST /api/simulation/agent — 通过 ReactAgent 处理请求（演示多智能体架构）
     @PostMapping("/agent")
     public ApiResponse<?> agent(@RequestBody Map<String, Object> input) {
-        try {
-            var response = simulationAgent.call(input);
-            return ApiResponse.ok(Map.of("content", response.getText()));
-        } catch (Exception e) {
-            return ApiResponse.ok(Map.of("error", e.getMessage()));
-        }
+        return registry.get("simulation-agent")
+                .map(agent -> {
+                    try {
+                        var response = agent.reactAgent().call(input);
+                        return ApiResponse.ok(Map.of("content", response.getText()));
+                    } catch (Exception e) {
+                        return ApiResponse.ok(Map.of("error", e.getMessage()));
+                    }
+                })
+                .orElse(ApiResponse.ok(Map.of("error", "Agent not found")));
+    }
+
+    // GET /api/agents — 列出所有已注册 Agent
+    @GetMapping("/agents")
+    public ApiResponse<?> agents() {
+        var list = registry.all().stream()
+                .map(a -> Map.of("name", a.name(), "description", a.description()))
+                .toList();
+        return ApiResponse.ok(list);
+    }
+
+    // GET /api/simulation/profile — 获取用户画像
+    @GetMapping("/profile")
+    public ApiResponse<?> profile() {
+        return ApiResponse.ok(profileTools.getProfile());
+    }
+
+    // POST /api/simulation/profile/assess — 生成/更新用户画像
+    @PostMapping("/profile/assess")
+    public ApiResponse<?> assessProfile() {
+        return ApiResponse.ok(profileTools.assessAbility());
+    }
+
+    // ──── 关系运维 API ────
+
+    // GET /api/simulation/contacts — 获取所有联系人
+    @GetMapping("/contacts")
+    public ApiResponse<?> contacts() {
+        return ApiResponse.ok(relationTools.listContacts());
+    }
+
+    // GET /api/simulation/contacts/check — 检查维护提醒和预警
+    @GetMapping("/contacts/check")
+    public ApiResponse<?> checkContacts() {
+        return ApiResponse.ok(relationTools.checkMaintenance());
+    }
+
+    // GET /api/simulation/contacts/{id}/intimacy — 计算亲密度
+    @GetMapping("/contacts/{id}/intimacy")
+    public ApiResponse<?> calcIntimacy(@PathVariable String id) {
+        return ApiResponse.ok(relationTools.calcIntimacy(id));
+    }
+
+    // GET /api/simulation/contacts/{id}/drift — 检测疏远
+    @GetMapping("/contacts/{id}/drift")
+    public ApiResponse<?> detectDrift(@PathVariable String id) {
+        return ApiResponse.ok(relationTools.detectDrift(id));
+    }
+
+    // POST /api/simulation/contacts/{id}/recover — 挽救方案
+    @PostMapping("/contacts/{id}/recover")
+    public ApiResponse<?> recover(@PathVariable String id, @RequestBody Map<String, Boolean> body) {
+        boolean choose = body.getOrDefault("recover", false);
+        return ApiResponse.ok(relationTools.generateRecoverPlan(id, choose));
+    }
+
+    // ──── 破冰分析 API ────
+
+    // POST /api/simulation/icebreak — 破冰分析
+    @PostMapping("/icebreak")
+    public ApiResponse<?> icebreak(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        var result = iceBreakTools.analyzeCard(
+                (List<String>) body.getOrDefault("myInterests", List.of()),
+                (List<String>) body.getOrDefault("myLabels", List.of()),
+                (List<String>) body.getOrDefault("otherInterests", List.of()),
+                (List<String>) body.getOrDefault("otherLabels", List.of()),
+                (String) body.getOrDefault("otherPersonality", ""),
+                (String) body.getOrDefault("context", "初次见面")
+        );
+        return ApiResponse.ok(result);
+    }
+
+    // ──── 沟通辅助 API ────
+
+    // POST /api/simulation/assist/analyze — 实时分析用户输入
+    @PostMapping("/assist/analyze")
+    public ApiResponse<?> analyzeSpeech(@RequestBody Map<String, String> body) {
+        var result = commAssistTools.analyzeSpeech(
+                body.getOrDefault("text", ""),
+                body.getOrDefault("context", "日常对话"),
+                body.getOrDefault("sessionId", UUID.randomUUID().toString())
+        );
+        return ApiResponse.ok(result);
+    }
+
+    // POST /api/simulation/assist/score — 沟通结束评分
+    @PostMapping("/assist/score")
+    public ApiResponse<?> scoreComm(@RequestBody Map<String, String> body) {
+        var result = commAssistTools.scorePerformance(body.getOrDefault("sessionId", ""));
+        return ApiResponse.ok(result);
     }
 }
