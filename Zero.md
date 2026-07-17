@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Zero.md
 
-本文件为 Claude Code (claude.ai/code) 在此仓库中工作时提供指导。
+本文件为  Coding agent 在此仓库中工作时提供指导。
 
 ## 项目概述
 
@@ -78,6 +78,4 @@ frontend/                      # uni-app (Vue 3 Composition API + TypeScript)
 - **API 调用**：在 `api/simulation.ts` 中通过 `uni.request()` 封装。遵循现有的 try/catch + `uni.showToast` 错误处理模式。
 - **响应解包**：始终解包 `ApiResponse<T>` — 先检查 `res.data.code === 200`，再使用 `res.data.data`。
 
-## Agent
 
-编写大量前端代码后，使用 **frontend-logic-reviewer** agent 进行审查。它会检查页面跳转、用户交互流程和微信小程序兼容性。在提交前端变更之前调用它。
