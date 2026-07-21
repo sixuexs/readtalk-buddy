@@ -120,9 +120,11 @@ public class SimulationService {
         store.getEvaluation(sessionId).ifPresent(eval -> {
             Map<String, Object> evalMap = new HashMap<>();
             evalMap.put("score", store.getScore(sessionId).orElse(null));
-            evalMap.put("expression", eval.getExpression());
-            evalMap.put("affinity", eval.getAffinity());
-            evalMap.put("logic", eval.getLogic());
+            evalMap.put("clarity", eval.getClarity());
+            evalMap.put("logicality", eval.getLogicality());
+            evalMap.put("empathyListening", eval.getEmpathyListening());
+            evalMap.put("interactivity", eval.getInteractivity());
+            evalMap.put("relaxation", eval.getRelaxation());
             evalMap.put("comment", eval.getComment());
             evalMap.put("strengths", eval.getStrengths());
             evalMap.put("suggestions", eval.getSuggestions());
@@ -159,10 +161,12 @@ public class SimulationService {
 
                 ## 评分要求
                 请以 JSON 格式返回评分结果，包含以下字段：
-                - expression: 表达力评分 (0-100)，评估语言表达是否清晰、流畅
-                - affinity: 亲和力评分 (0-100)，评估是否展现了友善、共情
-                - logic: 逻辑性评分 (0-100)，评估思维是否清晰、条理是否分明
-                - totalScore: 综合总分 (0-100)，取三个维度的加权平均
+                - clarity: 清晰度评分 (0-100)，评估语言表达是否清晰、易懂
+                - logicality: 逻辑性评分 (0-100)，评估思维是否清晰、条理是否分明
+                - empathyListening: 共情倾听评分 (0-100)，评估是否展现了友善、共情与倾听能力
+                - interactivity: 互动性评分 (0-100)，评估对话互动是否积极、有趣味
+                - relaxation: 松弛感评分 (0-100)，评估对话氛围是否轻松自然
+                - totalScore: 综合总分 (0-100)，取五个维度的加权平均
                 - comment: 评语 (50-100字)，给出整体评价和改进方向
                 - strengths: 优点标签数组，1-3个关键词
                 - suggestions: 改进建议标签数组，1-3个关键词
@@ -180,18 +184,27 @@ public class SimulationService {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             Map<String, Object> scoreData = mapper.readValue(result, Map.class);
 
-            int totalScore = ((Number) scoreData.get("totalScore")).intValue();
-            int expression = ((Number) scoreData.get("expression")).intValue();
-            int affinity = ((Number) scoreData.get("affinity")).intValue();
-            int logic = ((Number) scoreData.get("logic")).intValue();
+            int totalScore = getIntSafe(scoreData, "totalScore", 50);
+            int clarity = getIntSafe(scoreData, "clarity", 50);
+            int logicality = getIntSafe(scoreData, "logicality", 50);
+            int empathyListening = getIntSafe(scoreData, "empathyListening", 50);
+            int interactivity = getIntSafe(scoreData, "interactivity", 50);
+            int relaxation = getIntSafe(scoreData, "relaxation", 50);
             String comment = (String) scoreData.get("comment");
 
             List<String> strengths = (List<String>) scoreData.get("strengths");
             List<String> suggestions = (List<String>) scoreData.get("suggestions");
 
             // 持久化评分
-            ConversationDocument.Evaluation evaluation = new ConversationDocument.Evaluation(
-                    expression, affinity, logic, comment, strengths, suggestions);
+            ConversationDocument.Evaluation evaluation = new ConversationDocument.Evaluation();
+            evaluation.setClarity(clarity);
+            evaluation.setLogicality(logicality);
+            evaluation.setEmpathyListening(empathyListening);
+            evaluation.setInteractivity(interactivity);
+            evaluation.setRelaxation(relaxation);
+            evaluation.setComment(comment);
+            evaluation.setStrengths(strengths);
+            evaluation.setSuggestions(suggestions);
             store.saveScore(sessionId, totalScore, evaluation);
 
             // 发布评分完成事件 → UserProfileAgent 等订阅者自动更新
@@ -215,5 +228,12 @@ public class SimulationService {
                 "请完全按照这个角色设定来回复，保持自然、流畅的对话风格。每次回复不超过100个字。",
                 theme, personality
         );
+    }
+
+    /** 从 Map 中安全提取 int 值，缺失或非数字时返回默认值 */
+    private static int getIntSafe(Map<String, Object> map, String key, int defaultVal) {
+        Object val = map.get(key);
+        if (val instanceof Number n) return n.intValue();
+        return defaultVal;
     }
 }

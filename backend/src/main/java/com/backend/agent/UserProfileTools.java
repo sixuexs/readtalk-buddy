@@ -67,17 +67,17 @@ public class UserProfileTools {
 
         // 计算各维度加权平均分
         int totalSessions = scored.size();
-        double avgExp = scored.stream().mapToInt(d -> d.getEvaluation().getExpression()).average().orElse(0);
-        double avgAff = scored.stream().mapToInt(d -> d.getEvaluation().getAffinity()).average().orElse(0);
-        double avgLog = scored.stream().mapToInt(d -> d.getEvaluation().getLogic()).average().orElse(0);
+        double avgExp = scored.stream().mapToInt(d -> d.getEvaluation().getClarity()).average().orElse(0);
+        double avgAff = scored.stream().mapToInt(d -> d.getEvaluation().getEmpathyListening()).average().orElse(0);
+        double avgLog = scored.stream().mapToInt(d -> d.getEvaluation().getLogicality()).average().orElse(0);
         int overall = (int) ((avgExp + avgAff + avgLog) / 3.0);
 
         // 收集评分历史
         List<UserProfileDocument.ScoreRecord> history = scored.stream()
                 .map(d -> new UserProfileDocument.ScoreRecord(
                         d.getId(), d.getTheme(),
-                        d.getScore(), d.getEvaluation().getExpression(),
-                        d.getEvaluation().getAffinity(), d.getEvaluation().getLogic(),
+                        d.getScore(), d.getEvaluation().getClarity(),
+                        d.getEvaluation().getEmpathyListening(), d.getEvaluation().getLogicality(),
                         d.getUpdatedAt()))
                 .collect(Collectors.toList());
 

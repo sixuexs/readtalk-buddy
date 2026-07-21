@@ -28,9 +28,11 @@ public class SessionSummary {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class EvaluationSummary {
-        private int expression;
-        private int affinity;
-        private int logic;
+        private int clarity;
+        private int logicality;
+        private int empathyListening;
+        private int interactivity;
+        private int relaxation;
         private String comment;
         private List<String> strengths;
         private List<String> suggestions;
@@ -38,7 +40,8 @@ public class SessionSummary {
         public static EvaluationSummary fromDocument(ConversationDocument.Evaluation eval) {
             if (eval == null) return null;
             return new EvaluationSummary(
-                    eval.getExpression(), eval.getAffinity(), eval.getLogic(),
+                    eval.getClarity(), eval.getLogicality(), eval.getEmpathyListening(),
+                    eval.getInteractivity(), eval.getRelaxation(),
                     eval.getComment(), eval.getStrengths(), eval.getSuggestions()
             );
         }
