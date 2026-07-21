@@ -38,10 +38,13 @@ public class ConversationDocument {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    /* 5维评分: clarity/清晰度, logicality/逻辑性, empathyListening/共情倾听, interactivity/互动性, relaxation/松弛感 */
     public static class Evaluation {
-        private int expression;            // 表达力 (0-100)
-        private int affinity;              // 亲和力 (0-100)
-        private int logic;                 // 逻辑性 (0-100)
+        private int clarity;
+        private int logicality;
+        private int empathyListening;
+        private int interactivity;
+        private int relaxation;
         private String comment;            // AI 评语
         private List<String> strengths;    // 优点标签
         private List<String> suggestions;  // 改进建议标签
