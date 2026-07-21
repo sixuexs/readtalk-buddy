@@ -41,7 +41,7 @@ public class SimulationTools {
         return service.sendMessage(req);
     }
 
-    @Tool(description = "对指定会话的完整对话进行 AI 评分，返回总分、维度分（表达力/亲和力/逻辑性）、评语、优点标签、改进建议")
+    @Tool(description = "对指定会话的完整对话进行 AI 评分，返回总分、5维度分（清晰度/逻辑性/共情倾听/互动性/松弛感）、评语、优点标签、改进建议")
     public Map<String, Object> scoreConversation(
             @ToolParam(description = "会话 ID") String sessionId) {
         return service.scoreConversation(sessionId);

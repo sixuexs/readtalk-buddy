@@ -26,7 +26,7 @@ public class CommAssistAgent implements Agent {
                         - 关注语言是否清晰、得体、有礼貌
                         - 识别情绪状态并提供共情建议
                         - 态度积极时鼓励，消极时温和提醒
-                        - 评分兼顾表达力和情商两个维度
+                        - 评分基于5维评估体系（清晰度、逻辑性、共情倾听、互动性、松弛感）
                         """)
                 .model(chatModel)
                 .methodTools(commAssistTools)

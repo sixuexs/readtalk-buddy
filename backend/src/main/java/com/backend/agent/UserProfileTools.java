@@ -39,9 +39,11 @@ public class UserProfileTools {
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("exists", true);
-        result.put("avgExpression", profile.getAvgExpression());
-        result.put("avgAffinity", profile.getAvgAffinity());
-        result.put("avgLogic", profile.getAvgLogic());
+        result.put("avgClarity", profile.getAvgClarity());
+        result.put("avgLogicality", profile.getAvgLogicality());
+        result.put("avgEmpathyListening", profile.getAvgEmpathyListening());
+        result.put("avgInteractivity", profile.getAvgInteractivity());
+        result.put("avgRelaxation", profile.getAvgRelaxation());
         result.put("overallScore", profile.getOverallScore());
         result.put("totalSessions", profile.getTotalSessions());
         result.put("assessment", profile.getAssessment());
@@ -67,17 +69,20 @@ public class UserProfileTools {
 
         // 计算各维度加权平均分
         int totalSessions = scored.size();
-        double avgExp = scored.stream().mapToInt(d -> d.getEvaluation().getClarity()).average().orElse(0);
-        double avgAff = scored.stream().mapToInt(d -> d.getEvaluation().getEmpathyListening()).average().orElse(0);
-        double avgLog = scored.stream().mapToInt(d -> d.getEvaluation().getLogicality()).average().orElse(0);
-        int overall = (int) ((avgExp + avgAff + avgLog) / 3.0);
+        double avgClarity = scored.stream().mapToInt(d -> d.getEvaluation().getClarity()).average().orElse(0);
+        double avgLogicality = scored.stream().mapToInt(d -> d.getEvaluation().getLogicality()).average().orElse(0);
+        double avgEmpathyListening = scored.stream().mapToInt(d -> d.getEvaluation().getEmpathyListening()).average().orElse(0);
+        double avgInteractivity = scored.stream().mapToInt(d -> d.getEvaluation().getInteractivity()).average().orElse(0);
+        double avgRelaxation = scored.stream().mapToInt(d -> d.getEvaluation().getRelaxation()).average().orElse(0);
+        int overall = (int) ((avgClarity + avgLogicality + avgEmpathyListening + avgInteractivity + avgRelaxation) / 5.0);
 
         // 收集评分历史
         List<UserProfileDocument.ScoreRecord> history = scored.stream()
                 .map(d -> new UserProfileDocument.ScoreRecord(
                         d.getId(), d.getTheme(),
                         d.getScore(), d.getEvaluation().getClarity(),
-                        d.getEvaluation().getEmpathyListening(), d.getEvaluation().getLogicality(),
+                        d.getEvaluation().getLogicality(), d.getEvaluation().getEmpathyListening(),
+                        d.getEvaluation().getInteractivity(), d.getEvaluation().getRelaxation(),
                         d.getUpdatedAt()))
                 .collect(Collectors.toList());
 
@@ -91,9 +96,11 @@ public class UserProfileTools {
 
                 ## 评分统计
                 - 累计会话数：%d
-                - 表达力均分：%.0f
-                - 亲和力均分：%.0f
-                - 逻辑性均分：%.0f
+                - 清晰度均分：%.0f
+                - 逻辑思辨力均分：%.0f
+                - 共情倾听均分：%.0f
+                - 互动积极性均分：%.0f
+                - 情绪松弛度均分：%.0f
                 - 综合评分：%d
 
                 ## 历史评语
@@ -109,7 +116,7 @@ public class UserProfileTools {
                   "weeklyGoals": ["每周目标1", "每周目标2", "每周目标3"]
                 }
                 只返回JSON。""",
-                totalSessions, avgExp, avgAff, avgLog, overall, allComments);
+                totalSessions, avgClarity, avgLogicality, avgEmpathyListening, avgInteractivity, avgRelaxation, overall, allComments);
 
         try {
             String result = chatClient.prompt().user(profilePrompt).call().content();
@@ -120,9 +127,11 @@ public class UserProfileTools {
             UserProfileDocument profile = profileRepo.findDefault()
                     .orElse(new UserProfileDocument());
             profile.setId("default");
-            profile.setAvgExpression((int) avgExp);
-            profile.setAvgAffinity((int) avgAff);
-            profile.setAvgLogic((int) avgLog);
+            profile.setAvgClarity((int) avgClarity);
+            profile.setAvgLogicality((int) avgLogicality);
+            profile.setAvgEmpathyListening((int) avgEmpathyListening);
+            profile.setAvgInteractivity((int) avgInteractivity);
+            profile.setAvgRelaxation((int) avgRelaxation);
             profile.setOverallScore(overall);
             profile.setScoreHistory(history);
             profile.setAssessment((String) aiResult.get("assessment"));
@@ -136,9 +145,11 @@ public class UserProfileTools {
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("overallScore", overall);
-            response.put("avgExpression", (int) avgExp);
-            response.put("avgAffinity", (int) avgAff);
-            response.put("avgLogic", (int) avgLog);
+            response.put("avgClarity", (int) avgClarity);
+            response.put("avgLogicality", (int) avgLogicality);
+            response.put("avgEmpathyListening", (int) avgEmpathyListening);
+            response.put("avgInteractivity", (int) avgInteractivity);
+            response.put("avgRelaxation", (int) avgRelaxation);
             response.put("totalSessions", totalSessions);
             response.put("assessment", aiResult.get("assessment"));
             response.put("topStrengths", aiResult.get("topStrengths"));
