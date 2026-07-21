@@ -23,25 +23,39 @@
           </view>
           <view class="score-card__dimensions">
             <view class="dimension-item">
-              <text class="dimension-label">表达力</text>
+              <text class="dimension-label">清晰度</text>
               <view class="dimension-bar">
-                <view class="dimension-bar__fill" :style="{ width: evaluation.expression + '%' }" />
+                <view class="dimension-bar__fill dimension-bar__fill--cyan" :style="{ width: evaluation.clarity + '%' }" />
               </view>
-              <text class="dimension-score">{{ evaluation.expression }}</text>
-            </view>
-            <view class="dimension-item">
-              <text class="dimension-label">亲和力</text>
-              <view class="dimension-bar">
-                <view class="dimension-bar__fill dimension-bar__fill--warm" :style="{ width: evaluation.affinity + '%' }" />
-              </view>
-              <text class="dimension-score">{{ evaluation.affinity }}</text>
+              <text class="dimension-score">{{ evaluation.clarity }}</text>
             </view>
             <view class="dimension-item">
               <text class="dimension-label">逻辑性</text>
               <view class="dimension-bar">
-                <view class="dimension-bar__fill dimension-bar__fill--green" :style="{ width: evaluation.logic + '%' }" />
+                <view class="dimension-bar__fill dimension-bar__fill--purple" :style="{ width: evaluation.logicality + '%' }" />
               </view>
-              <text class="dimension-score">{{ evaluation.logic }}</text>
+              <text class="dimension-score">{{ evaluation.logicality }}</text>
+            </view>
+            <view class="dimension-item">
+              <text class="dimension-label">共情倾听</text>
+              <view class="dimension-bar">
+                <view class="dimension-bar__fill dimension-bar__fill--rose" :style="{ width: evaluation.empathyListening + '%' }" />
+              </view>
+              <text class="dimension-score">{{ evaluation.empathyListening }}</text>
+            </view>
+            <view class="dimension-item">
+              <text class="dimension-label">互动性</text>
+              <view class="dimension-bar">
+                <view class="dimension-bar__fill dimension-bar__fill--amber" :style="{ width: evaluation.interactivity + '%' }" />
+              </view>
+              <text class="dimension-score">{{ evaluation.interactivity }}</text>
+            </view>
+            <view class="dimension-item">
+              <text class="dimension-label">松弛感</text>
+              <view class="dimension-bar">
+                <view class="dimension-bar__fill dimension-bar__fill--emerald" :style="{ width: evaluation.relaxation + '%' }" />
+              </view>
+              <text class="dimension-score">{{ evaluation.relaxation }}</text>
             </view>
           </view>
         </view>
@@ -323,11 +337,20 @@ const formatMsgTime = (ts: number): string => {
   border-radius: 7rpx;
   background: linear-gradient(90deg, #4A90D9, #5B8DEF);
 }
-.dimension-bar__fill--warm {
-  background: linear-gradient(90deg, #F5A623, #F7C948);
+.dimension-bar__fill--cyan {
+  background: linear-gradient(90deg, #06B6D4, #22D3EE);
 }
-.dimension-bar__fill--green {
-  background: linear-gradient(90deg, #43B581, #5FD4A0);
+.dimension-bar__fill--purple {
+  background: linear-gradient(90deg, #8B5CF6, #A78BFA);
+}
+.dimension-bar__fill--rose {
+  background: linear-gradient(90deg, #F43F5E, #FB7185);
+}
+.dimension-bar__fill--amber {
+  background: linear-gradient(90deg, #F59E0B, #FBBF24);
+}
+.dimension-bar__fill--emerald {
+  background: linear-gradient(90deg, #10B981, #34D399);
 }
 .dimension-score {
   font-size: 24rpx;

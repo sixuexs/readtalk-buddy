@@ -4,6 +4,8 @@ import com.backend.agent.AgentEvent;
 import com.backend.document.ConversationDocument;
 import com.backend.model.*;
 import com.backend.store.ConversationStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -17,6 +19,8 @@ import java.util.*;
 
 @Service
 public class SimulationService {
+
+    private static final Logger log = LoggerFactory.getLogger(SimulationService.class);
 
     private final ChatClient chatClient;
     private final ConversationStore store;
@@ -161,11 +165,11 @@ public class SimulationService {
 
                 ## 评分要求
                 请以 JSON 格式返回评分结果，包含以下字段：
-                - clarity: 清晰度评分 (0-100)，评估语言表达是否清晰、易懂
-                - logicality: 逻辑性评分 (0-100)，评估思维是否清晰、条理是否分明
-                - empathyListening: 共情倾听评分 (0-100)，评估是否展现了友善、共情与倾听能力
-                - interactivity: 互动性评分 (0-100)，评估对话互动是否积极、有趣味
-                - relaxation: 松弛感评分 (0-100)，评估对话氛围是否轻松自然
+                - clarity: 表达清晰度 (0-100)，评估语言表达是否清晰、易懂
+                - logicality: 逻辑思辨力 (0-100)，评估思维是否清晰、条理是否分明
+                - empathyListening: 共情与倾听 (0-100)，评估是否展现了友善、共情与倾听能力
+                - interactivity: 互动积极性 (0-100)，评估对话互动是否积极、有趣味
+                - relaxation: 情绪松弛度 (0-100)，评估对话氛围是否轻松自然
                 - totalScore: 综合总分 (0-100)，取五个维度的加权平均
                 - comment: 评语 (50-100字)，给出整体评价和改进方向
                 - strengths: 优点标签数组，1-3个关键词
@@ -230,10 +234,11 @@ public class SimulationService {
         );
     }
 
-    /** 从 Map 中安全提取 int 值，缺失或非数字时返回默认值 */
+    /** 从 Map 中安全提取 int 值，缺失或非数字时返回默认值并记录警告 */
     private static int getIntSafe(Map<String, Object> map, String key, int defaultVal) {
         Object val = map.get(key);
         if (val instanceof Number n) return n.intValue();
+        log.warn("Missing dimension: {} in AI response, defaulting to {}", key, defaultVal);
         return defaultVal;
     }
 }

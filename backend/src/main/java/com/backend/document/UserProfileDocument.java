@@ -22,10 +22,12 @@ public class UserProfileDocument {
     @Id
     private String id;                              // "default"（单用户模式）
 
-    // 各维度加权平均分
-    private int avgExpression;                      // 平均表达力
-    private int avgAffinity;                        // 平均亲和力
-    private int avgLogic;                           // 平均逻辑性
+    // 各维度加权平均分（5维评分）
+    private int avgClarity;                         // 平均清晰度
+    private int avgLogicality;                      // 平均逻辑性
+    private int avgEmpathyListening;                // 平均共情倾听
+    private int avgInteractivity;                   // 平均互动性
+    private int avgRelaxation;                      // 平均松弛感
     private int overallScore;                       // 综合评分
 
     // 趋势数据（按时间排序的评分记录摘要）
@@ -50,9 +52,11 @@ public class UserProfileDocument {
         private String sessionId;
         private String theme;
         private int score;
-        private int expression;
-        private int affinity;
-        private int logic;
+        private int clarity;
+        private int logicality;
+        private int empathyListening;
+        private int interactivity;
+        private int relaxation;
         private LocalDateTime scoredAt;
     }
 }

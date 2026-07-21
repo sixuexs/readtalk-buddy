@@ -15,6 +15,7 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '幽默风趣社牛',
     interests: ['篮球', '游戏', '旅行'],
     labels: ['好友', '大学同学'],
+    category: '科幻文学',
   },
   {
     id: 'p2',
@@ -26,6 +27,7 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '沉稳内敛观察者',
     interests: ['阅读', '咖啡', '摄影'],
     labels: ['好友', '书友'],
+    category: '文学经典',
   },
   {
     id: 'p3',
@@ -37,6 +39,7 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '温柔体贴',
     interests: ['烹饪', '园艺', '广场舞'],
     labels: ['家人', '母亲'],
+    category: '历史人文',
   },
   {
     id: 'p4',
@@ -48,6 +51,7 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '严肃寡言',
     interests: ['钓鱼', '新闻', '象棋'],
     labels: ['家人', '父亲'],
+    category: '历史人文',
   },
   {
     id: 'p5',
@@ -59,6 +63,7 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '务实高效',
     interests: ['健身', '科技', '电影'],
     labels: ['同事', '项目组'],
+    category: '科技商业',
   },
   {
     id: 'p6',
@@ -70,6 +75,7 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '慢热细腻',
     interests: ['音乐', '画画'],
     labels: ['同学', '高中'],
+    category: '文学经典',
   },
   {
     id: 'p7',
@@ -81,5 +87,6 @@ export const MOCK_RELATION_CONTACTS: RelationContact[] = [
     personality: '随和健谈',
     interests: ['徒步', '摄影'],
     labels: ['泛社交', '活动认识'],
+    category: '推理悬疑',
   },
 ]

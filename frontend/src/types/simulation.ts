@@ -90,9 +90,11 @@ export interface ScoreRes {
 
 // 评分详情
 export interface EvaluationSummary {
-  expression: number
-  affinity: number
-  logic: number
+  clarity: number
+  logicality: number
+  empathyListening: number
+  interactivity: number
+  relaxation: number
   comment: string
   strengths: string[]
   suggestions: string[]

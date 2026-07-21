@@ -17,6 +17,8 @@ export interface RelationContact {
   interests?: string[]
   /** 关系/身份标签 */
   labels?: string[]
+  /** 书友圈分类 */
+  category?: string
 }
 
 /** 视图模式 */
