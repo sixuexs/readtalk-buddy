@@ -8,9 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 联系人同步服务 —— MongoDB ContactDocument ↔ MySQL ContactEntity 的桥梁
@@ -31,31 +31,31 @@ public class ContactService {
      */
     @Transactional
     public ContactEntity saveOrUpdate(ContactDocument doc, Long userId) {
-        ContactEntity entity = new ContactEntity();
+        // 尝试查找已存在的实体
+        ContactEntity entity = contactJpaRepository.findByUserIdAndName(userId, doc.getName())
+                .orElse(null);
 
-        entity.setUserId(userId);
-        entity.setName(doc.getName());
-        entity.setAvatarUrl(doc.getAvatar());
-        entity.setPersonality(doc.getPersonality());
-        entity.setRelationType(doc.getRelationType() != null ? doc.getRelationType() : "other");
-        entity.setCategory("other");
-
-        // 将 List<String> 序列化为 JSON 字符串
-        entity.setInterests(toJson(doc.getInterests()));
-        entity.setLabels(toJson(doc.getLabels()));
-
-        // 亲密度 int → BigDecimal
-        entity.setIntimacyScore(BigDecimal.valueOf(doc.getIntimacy()));
-
-        // lastContactDays → 计算 lastContactTime
-        if (doc.getLastContactDays() > 0) {
-            entity.setLastContactTime(LocalDateTime.now().minusDays(doc.getLastContactDays()));
+        if (entity != null) {
+            // 更新：仅覆盖白名单字段
+            entity.setAvatarUrl(doc.getAvatar());
+            entity.setRelationType(doc.getRelationType() != null ? doc.getRelationType() : "other");
+            entity.setPersonality(doc.getPersonality());
+            entity.setInterests(toJson(doc.getInterests()));
+            entity.setLabels(toJson(doc.getLabels()));
+            entity.setUpdatedAt(LocalDateTime.now());
+        } else {
+            // 新增：仅设置白名单字段，其他信任 DB 默认
+            entity = new ContactEntity();
+            entity.setUserId(userId);
+            entity.setName(doc.getName());
+            entity.setAvatarUrl(doc.getAvatar());
+            entity.setRelationType(doc.getRelationType() != null ? doc.getRelationType() : "other");
+            entity.setPersonality(doc.getPersonality());
+            entity.setInterests(toJson(doc.getInterests()));
+            entity.setLabels(toJson(doc.getLabels()));
         }
 
-        // 时间戳
-        entity.setCreatedAt(doc.getCreatedAt() != null ? doc.getCreatedAt() : LocalDateTime.now());
-        entity.setUpdatedAt(doc.getUpdatedAt() != null ? doc.getUpdatedAt() : LocalDateTime.now());
-
+        // 永不触碰：intimacyScore, lastContactTime, warningDismissedAt, deletedAt, id, createdAt
         return contactJpaRepository.save(entity);
     }
 
