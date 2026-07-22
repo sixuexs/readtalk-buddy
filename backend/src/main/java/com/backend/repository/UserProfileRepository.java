@@ -13,4 +13,7 @@ public interface UserProfileRepository extends MongoRepository<UserProfileDocume
     default Optional<UserProfileDocument> findDefault() {
         return findById("default");
     }
+
+    /** 获取最近更新的用户画像（供 RelationAdviceService 使用） */
+    UserProfileDocument findFirstByOrderByUpdatedAtDesc();
 }
