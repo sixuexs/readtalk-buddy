@@ -68,6 +68,8 @@ public class WarningService {
             }
 
             // 亲密度预警
+            // TODO[封测]: 滑落应只预警 score 在环阈值上方 margin 内（即将下掉），
+            //   score<40 已在外环不报滑落；当前 abs 写法会让外环边缘值误报"即将掉外环"。
             if (contact.getIntimacy() < WarningConstants.DRIFT_INTIMACY_THRESHOLD
                     && !contact.isSuppressWarning() && !contact.isRecovering()) {
                 warnings.add(Map.of(

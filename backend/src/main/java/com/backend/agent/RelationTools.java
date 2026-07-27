@@ -108,7 +108,7 @@ public class RelationTools {
             );
 
             // P4=存在 -> 拿用户画像
-            var profile = profileRepo.findFirstByOrderByUpdatedAtDesc();
+            var profile = profileRepo.findFirstByOrderByLastUpdatedDesc();
             // TODO[多用户]: 改 findByUserId(userId)，与 conversations 加 userId 同期修。
 
             var advice = relationAdviceService.generatePersonalizedAdvice(contact, profile, ctx);

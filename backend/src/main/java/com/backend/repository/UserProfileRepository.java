@@ -15,5 +15,5 @@ public interface UserProfileRepository extends MongoRepository<UserProfileDocume
     }
 
     /** 获取最近更新的用户画像（供 RelationAdviceService 使用） */
-    UserProfileDocument findFirstByOrderByUpdatedAtDesc();
+    UserProfileDocument findFirstByOrderByLastUpdatedDesc();
 }
