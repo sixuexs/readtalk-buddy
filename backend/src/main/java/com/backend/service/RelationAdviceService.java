@@ -60,12 +60,16 @@ public class RelationAdviceService {
                 ? String.join("、", contact.getLabels()) : "无";
         String personality = contact.getPersonality() != null ? contact.getPersonality() : "未知";
         String strengths = profile != null && profile.getTopStrengths() != null
-                ? String.join("、", profile.getTopStrengths()) : "真诚、耐心";
-        String weaknesses = profile != null && profile.getTopWeaknesses() != null
-                ? String.join("、", profile.getTopWeaknesses()) : "不善表达";
+                && !profile.getTopStrengths().isEmpty()
+                ? String.join("、", profile.getTopStrengths()) : "暂无";
 
         boolean hasWeaknesses = profile != null && profile.getTopWeaknesses() != null
                 && !profile.getTopWeaknesses().isEmpty();
+        String weaknesses = hasWeaknesses
+                ? String.join("、", profile.getTopWeaknesses()) : "暂无明显不足";
+        String weaknessRule = hasWeaknesses
+                ? "用户有不足，给\"可直接说出口的具体话术\"（如\"你可以说：上次聊到摄影，你拍的风景真好看\"），而非抽象要求（如\"多找共同话题\"）。"
+                : "用户暂无明显不足，不需给改进话术。";
 
         String prompt = String.format("""
             你是关系维护顾问。根据以下信息为用户生成个性化关系建议。
@@ -85,17 +89,18 @@ public class RelationAdviceService {
             - 上次联系：%d 天前
             - 亲密度：%d/100
             - 预警类型：%s
+            - 预警级别：%s
 
             ## 硬约束
             1. entryTopics 至少 1 条显式引用联系人的兴趣爱好 / 性格 / 身份标签之一。
-            2. 若用户有不足（非空），给"可直接说出口的具容话术"（如"你可以说：上次聊到摄影，你拍的风景真好看"），而非抽象要求（如"多找共同话题"）。
+            2. %s
             3. 语气按预警级别：%s。
             4. 禁止居高临下或制造愧疚/焦虑的措辞（如"你再不联系就晚了""你怎么又冷落了"）。
 
             ## 备注
             无上次交流内容，据画像+关系现状给建议。
 
-            请严格按以下 JSON 格式返回（只返回 JSON）：
+            请严格按以下 JSON 格式返回（只返回 JSON，不要包裹 markdown 代码块）：
             {
               "entryTopics": ["话题1", "话题2"],
               "openingLine": "一条自然开场白",
@@ -109,13 +114,17 @@ public class RelationAdviceService {
             strengths, weaknesses,
             ctx.daysSinceLastContact(), ctx.intimacyScore(),
             ctx.warningType() != null ? ctx.warningType() : "无",
+            severity,
+            weaknessRule,
             toneRule
         );
 
+        // TODO[表达层完整化]: 支持 mode（light/full）差异化输出
         try {
             String response = chatClient.prompt().user(prompt).call().content();
+            String json = stripMarkdown(response);
             @SuppressWarnings("unchecked")
-            Map<String, Object> map = mapper.readValue(response, Map.class);
+            Map<String, Object> map = mapper.readValue(json, Map.class);
             return new AdviceResult(
                 (List<String>) map.getOrDefault("entryTopics", List.of()),
                 (String) map.getOrDefault("openingLine", ""),
@@ -127,6 +136,28 @@ public class RelationAdviceService {
             log.warn("LLM 生成建议失败，使用规则 fallback: {}", e.getMessage());
             return fallback(contact);
         }
+    }
+
+    /** 去除 LLM 响应中的 markdown 代码块包裹，提取 JSON 子串。*/
+    private String stripMarkdown(String response) {
+        if (response == null) return "";
+        String s = response.trim();
+        if (s.startsWith("```")) {
+            int start = s.indexOf('\n');
+            int end = s.lastIndexOf("```");
+            if (start >= 0 && end > start) {
+                s = s.substring(start + 1, end).trim();
+            }
+        }
+        // 兜底：提取最外层 {...} 子串
+        if (!s.startsWith("{")) {
+            int l = s.indexOf('{');
+            int r = s.lastIndexOf('}');
+            if (l >= 0 && r > l) {
+                s = s.substring(l, r + 1);
+            }
+        }
+        return s;
     }
 
     /** 规则 fallback — 同 schema，不抛异常。*/
