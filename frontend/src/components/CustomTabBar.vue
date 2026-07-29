@@ -59,7 +59,7 @@ const tabList = [
     activeSrc: '/static/bottom_bar/社交记录.png',
   },
   {
-    pagePath: '/pages/relation/relation',
+    pagePath: '/pages/relation/graph',
     text: '关系图谱',
     isMiddle: true,
     normalSrc: '/static/bottom_bar/关系图谱.png',

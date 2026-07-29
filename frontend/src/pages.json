@@ -13,7 +13,7 @@
 			}
 		},
 		{
-			"path": "pages/relation/relation",
+			"path": "pages/relation/graph",
 			"style": {
 				"navigationBarTitleText": "关系图谱"
 			}
@@ -55,7 +55,7 @@
 				"text": "社交记录"
 			},
 			{
-				"pagePath": "pages/relation/relation",
+				"pagePath": "pages/relation/graph",
 				"text": "关系图谱"
 			},
 			{

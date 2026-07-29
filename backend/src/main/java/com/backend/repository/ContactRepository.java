@@ -18,4 +18,7 @@ public interface ContactRepository extends MongoRepository<ContactDocument, Stri
 
     /** 查找长时间未联系的联系人 */
     List<ContactDocument> findByLastContactDaysGreaterThan(int days);
+
+    /** 按姓名匹配档案（MySQL contact -> MongoDB 档案桥接用） */
+    ContactDocument findFirstByName(String name);
 }
