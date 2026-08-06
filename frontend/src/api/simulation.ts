@@ -8,6 +8,8 @@ import type {
   StartSimulationRes,
   SessionListRes,
   ScoreRes,
+  IceBreakReq,
+  IceBreakRes,
 } from '@/types/simulation'
 
 const BASE_URL = 'http://localhost:8080'
@@ -95,6 +97,19 @@ export function getSessions(): Promise<SessionListRes> {
       url: `${BASE_URL}/api/simulation/sessions`,
       method: 'GET',
       success: (res) => resolve(res.data as SessionListRes),
+      fail: reject,
+    })
+  })
+}
+
+// 破冰分析
+export function icebreakAnalysis(body: IceBreakReq): Promise<IceBreakRes> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/icebreak`,
+      method: 'POST',
+      data: body,
+      success: (res) => resolve(res.data as IceBreakRes),
       fail: reject,
     })
   })

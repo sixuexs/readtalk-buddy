@@ -116,3 +116,33 @@ export interface SessionListRes {
   code: number
   data: SessionSummary[]
 }
+
+// ──── 破冰分析 ────
+
+// POST /api/simulation/icebreak 请求体
+export interface IceBreakReq {
+  myInterests: string[]
+  myLabels: string[]
+  otherInterests: string[]
+  otherLabels: string[]
+  otherPersonality: string
+  context: string
+}
+
+// 破冰分析结果
+export interface IceBreakAnalysis {
+  topics: string[]
+  strategy: string
+  warnings: string[]
+  commonGroundPoints: string[]
+}
+
+// POST /api/simulation/icebreak 响应体
+export interface IceBreakRes {
+  code: number
+  data: {
+    contactId: string
+    contact: Record<string, unknown>
+    analysis: IceBreakAnalysis
+  }
+}

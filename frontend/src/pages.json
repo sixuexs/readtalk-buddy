@@ -37,6 +37,18 @@
 				"navigationBarTitleText": "个人中心",
 				"navigationBarBackgroundColor": "#ffffff"
 			}
+		},
+		{
+			"path": "pages/namecard/namecard",
+			"style": {
+				"navigationBarTitleText": "个人名片"
+			}
+		},
+		{
+			"path": "pages/icebreak/icebreak",
+			"style": {
+				"navigationBarTitleText": "破冰分析"
+			}
 		}
 	],
 	"tabBar": {

@@ -43,6 +43,13 @@ public class UserProfileDocument {
     private List<String> weeklyGoals;               // 每周目标
 
     private int totalSessions;                      // 累计会话数
+
+    // 名片字段
+    private Long userId;                            // 用户ID
+    private String displayName;                     // 名片显示名
+    private String biography;                       // 个人简介
+    private String status;                          // 当前状态签名（如"正在读《三体》"）
+
     private LocalDateTime lastUpdated;
 
     @Data
