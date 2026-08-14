@@ -15,7 +15,7 @@ export function getRelationGraph(): Promise<GraphRes> {
 }
 
 // 获取联系人个性化建议（light=预警短建议 / full=完整挽救方案）
-export function getContactAdvice(contactId: number, mode: AdviceMode): Promise<AdviceRes> {
+export function getContactAdvice(contactId: string, mode: AdviceMode): Promise<AdviceRes> {
   return new Promise((resolve, reject) => {
     uni.request({
       url: `${BASE_URL}/api/relation/contacts/${contactId}/advice?mode=${mode}`,
@@ -27,7 +27,7 @@ export function getContactAdvice(contactId: number, mode: AdviceMode): Promise<A
 }
 
 // 暂不提醒（预警冷却 7 天）
-export function dismissWarning(contactId: number): Promise<DismissRes> {
+export function dismissWarning(contactId: string): Promise<DismissRes> {
   return new Promise((resolve, reject) => {
     uni.request({
       url: `${BASE_URL}/api/relation/contacts/${contactId}/dismiss`,
@@ -39,7 +39,7 @@ export function dismissWarning(contactId: number): Promise<DismissRes> {
 }
 
 // 继续提醒（取消冷却，预警恢复）
-export function resumeWarning(contactId: number): Promise<ResumeRes> {
+export function resumeWarning(contactId: string): Promise<ResumeRes> {
   return new Promise((resolve, reject) => {
     uni.request({
       url: `${BASE_URL}/api/relation/contacts/${contactId}/resume`,

@@ -31,6 +31,16 @@ public final class IntimacyConstants {
     public static final double TTL_HALFLIFE_DAYS = 30.0;   // 半衰期（天）
     public static final double TTL_FLOOR          = 0.10;   // 最低衰减系数（10%）
 
+    // ── 频率(FREQ) 归一化参数 ──
+    /** 频率观察窗口（天）：只统计该窗口内的互动次数 */
+    public static final int FREQ_WINDOW_DAYS = 30;
+    /** 互动次数达到此值即视为"高频"，归一化为 1.0 */
+    public static final int FREQ_FULL_COUNT  = 5;
+
+    // ── 深度(DEPTH) 归一化参数 ──
+    /** 平均消息数达到此值即视为"深度饱满"，归一化为 1.0 */
+    public static final int DEPTH_FULL_MESSAGES = 20;
+
     // ── 降级默认值（对应 P1/P3/P6 空数据通道）──
     public static final double DEGRADE_FREQ_SCORE  = 0.0;  // 频率分量降级
     public static final double DEGRADE_DEPTH_SCORE  = 0.0; // 深度分量降级

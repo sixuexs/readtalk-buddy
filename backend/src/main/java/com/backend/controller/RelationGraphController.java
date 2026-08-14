@@ -27,21 +27,21 @@ public class RelationGraphController {
 
     // GET /api/relation/contacts/{id}/advice?mode=light|full — 个性化建议
     @GetMapping("/contacts/{id}/advice")
-    public ApiResponse<?> advice(@PathVariable Long id,
+    public ApiResponse<?> advice(@PathVariable String id,
                                  @RequestParam(defaultValue = "light") String mode) {
         return ApiResponse.ok(service.getAdvice(id, mode));
     }
 
     // POST /api/relation/contacts/{id}/dismiss — 暂不提醒（7 天冷却）
     @PostMapping("/contacts/{id}/dismiss")
-    public ApiResponse<?> dismiss(@PathVariable Long id) {
+    public ApiResponse<?> dismiss(@PathVariable String id) {
         service.dismissWarning(id);
         return ApiResponse.ok(Map.of("dismissed", true));
     }
 
     // POST /api/relation/contacts/{id}/resume — 继续提醒（取消冷却）
     @PostMapping("/contacts/{id}/resume")
-    public ApiResponse<?> resume(@PathVariable Long id) {
+    public ApiResponse<?> resume(@PathVariable String id) {
         service.resumeWarning(id);
         return ApiResponse.ok(Map.of("resumed", true));
     }

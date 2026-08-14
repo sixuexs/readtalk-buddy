@@ -100,8 +100,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'dismissed', contactId: number): void
-  (e: 'resumed', contactId: number): void
+  (e: 'dismissed', contactId: string): void
+  (e: 'resumed', contactId: string): void
 }>()
 
 // 建议面板状态
@@ -155,13 +155,20 @@ watch(
 
 const AVATAR_COLORS = ['#93C5FD', '#A7F3D0', '#FDE68A', '#FCA5A5', '#C4B5FD']
 
-const avatarBg = computed(() => AVATAR_COLORS[props.contact.id % AVATAR_COLORS.length])
+/** string id → 稳定色板下标 */
+function hashIndex(id: string, mod: number): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) >>> 0
+  }
+  return h % mod
+}
+
+const avatarBg = computed(() => AVATAR_COLORS[hashIndex(props.contact.id, AVATAR_COLORS.length)])
 
 const lastContactText = computed(() => {
-  if (!props.contact.lastContactTime) return '暂无记录'
-  const last = new Date(props.contact.lastContactTime.replace(/-/g, '/').replace('T', ' '))
-  const days = Math.max(0, Math.floor((Date.now() - last.getTime()) / 86400000))
-  if (days === 0) return '今天'
+  const days = props.contact.lastContactDays
+  if (days == null || days === 0) return '今天'
   return `${days} 天前`
 })
 

@@ -29,11 +29,12 @@ public class ConversationStore {
      * 创建新会话，保存第一条消息和 systemPrompt
      */
     public void createSession(String sessionId, String theme, String personality,
-                              String systemPrompt, ChatMessage firstMessage) {
+                              String relatedContactId, String systemPrompt, ChatMessage firstMessage) {
         ConversationDocument doc = new ConversationDocument();
         doc.setId(sessionId);
         doc.setTheme(theme);
         doc.setPersonality(personality);
+        doc.setRelatedContactId(relatedContactId);
         doc.setSystemPrompt(systemPrompt);
 
         MessageItem item = toMessageItem(firstMessage, 1);

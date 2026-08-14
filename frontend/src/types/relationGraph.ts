@@ -1,8 +1,8 @@
 // 关系图谱页（graph.vue）类型定义 — 对齐后端 /api/relation/* 响应
 
-/** MySQL contact 行（GET /api/relation/graph 的 contacts 元素） */
+/** MongoDB contact 文档（GET /api/relation/graph 的 contacts 元素，P0 统一为 String id） */
 export interface GraphContact {
-  id: number
+  id: string
   name: string
   relationType: string // 朋友/同事/家人/同学/other
   category: string
@@ -11,7 +11,7 @@ export interface GraphContact {
   interests: string[]
   labels: string[]
   avatarUrl: string | null
-  lastContactTime: string | null
+  lastContactDays: number
 }
 
 export type WarningLevel = 'YELLOW' | 'ORANGE' | 'RED'
@@ -19,7 +19,7 @@ export type WarningType = 'STAGNATION' | 'DECAY'
 
 /** 预警条目（GET /api/relation/graph 的 warnings 元素） */
 export interface GraphWarning {
-  contactId: number
+  contactId: string
   type: WarningType
   level: WarningLevel
   reason: string

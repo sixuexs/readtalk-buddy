@@ -59,16 +59,25 @@ const LEVEL_COLORS: Record<string, string> = {
   RED: '#EF4444',
 }
 
-function avatarBg(id: number): string {
-  return AVATAR_COLORS[id % AVATAR_COLORS.length]
+function avatarBg(id: string): string {
+  return AVATAR_COLORS[hashIndex(id, AVATAR_COLORS.length)]
 }
 
-function warningOf(contactId: number): GraphWarning | undefined {
+/** string id → 稳定色板下标 */
+function hashIndex(id: string, mod: number): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) >>> 0
+  }
+  return h % mod
+}
+
+function warningOf(contactId: string): GraphWarning | undefined {
   // 冷却中（已"暂不提醒"）不显示角标
   return props.warnings.find((w) => w.contactId === contactId && !w.dismissed)
 }
 
-function badgeColor(contactId: number): string {
+function badgeColor(contactId: string): string {
   const w = warningOf(contactId)
   return w ? LEVEL_COLORS[w.level] || '#FBBF24' : 'transparent'
 }

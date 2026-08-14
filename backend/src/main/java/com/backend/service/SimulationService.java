@@ -65,7 +65,7 @@ public class SimulationService {
         ChatMessage greetingMsg = new ChatMessage("1", "other", "", greeting, now);
 
         store.createSession(sessionId, req.getTheme(), req.getPersonality(),
-                systemPrompt, greetingMsg);
+                req.getRelatedContactId(), systemPrompt, greetingMsg);
 
         Map<String, Object> data = new HashMap<>();
         data.put("sessionId", sessionId);

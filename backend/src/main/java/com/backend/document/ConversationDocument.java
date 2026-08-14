@@ -28,10 +28,10 @@ public class ConversationDocument {
     /**
      * 关联联系人 ID（读侧字段，供 E 模块深度/质量计算用）。
      *
-     * 现有写入路径不填此字段 → 旧文档读时为 null。
-     * TODO: 写管道通后由 scoreConversation / ConversationStore 填入。
+     * 对齐 MongoDB contacts 的 String id（P0 统一：联系人以 MongoDB 为唯一真相源）。
+     * null 表示本场模拟未绑定书友（纯能力训练），不参与亲密度计算。
      */
-    private Long relatedContactId;
+    private String relatedContactId;
 
     /**
      * 所属用户 ID（读侧字段）。

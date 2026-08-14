@@ -206,7 +206,11 @@ async function initCanvas() {
       .fields({ node: true, size: true }, () => {})
       .exec((res) => {
         const info = res?.[0] as {
-          node?: { getContext: (type: string) => CanvasRenderingContext2D }
+          node?: {
+            getContext: (type: string) => CanvasRenderingContext2D
+            width?: number
+            height?: number
+          }
           width?: number
           height?: number
         }

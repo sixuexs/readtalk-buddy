@@ -112,7 +112,7 @@ import type { GraphContact, GraphWarning } from '@/types/relationGraph'
 
 /** 节点视图模型：x/y 为圆心的画布像素坐标 */
 interface NodeView {
-  id: number
+  id: string
   x: number
   y: number
   color: string
@@ -132,7 +132,7 @@ const selectedContact = ref<GraphContact | null>(null)
 const selectedWarning = ref<GraphWarning | null>(null)
 
 // 当前选中节点 id：选中放大高亮，其余缩小灰化（CSS transition 过渡）
-const selectedId = ref<number | null>(null)
+const selectedId = ref<string | null>(null)
 
 // 静态底图：canvas 一次性绘制后导出，导出成功且图片加载完成后隐藏画布
 const bgUrl = ref('')
@@ -160,6 +160,15 @@ const LEVEL_COLORS: Record<string, string> = {
 
 const SECTOR_FILLS = ['#F0F7FF', '#F0FDF4', '#FEFCE8', '#FDF2F8', '#F8FAFC']
 const NODE_COLORS = ['#60A5FA', '#34D399', '#FBBF24', '#F472B6', '#A78BFA']
+
+/** string id → 稳定色板下标（替代原来的 number 取模） */
+function hashIndex(id: string, mod: number): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) >>> 0
+  }
+  return h % mod
+}
 
 // ==================== 生命周期 ====================
 
@@ -312,7 +321,7 @@ const nodeViews = computed<NodeView[]>(() => {
   const r3 = Math.min(canvasW.value, canvasH.value) / 2 - 36
   const ringRadius = [r3 * 0.4, r3 * 0.68, r3]
 
-  const warnMap = new Map<number, GraphWarning>()
+  const warnMap = new Map<string, GraphWarning>()
   warnings.value.forEach((w) => warnMap.set(w.contactId, w))
 
   const groups = new Map<string, GraphContact[]>()
@@ -333,7 +342,7 @@ const nodeViews = computed<NodeView[]>(() => {
         id: c.id,
         x: cx + radius * Math.cos(angle),
         y: cy + radius * Math.sin(angle),
-        color: NODE_COLORS[c.id % NODE_COLORS.length],
+        color: NODE_COLORS[hashIndex(c.id, NODE_COLORS.length)],
         contact: c,
         warning: warnMap.get(c.id) || null,
       })
@@ -397,16 +406,16 @@ function switchView(mode: 'graph' | 'list') {
 }
 
 /** 暂不提醒 / 挽救后：预警打 dismissed 标记（角标消失，卡片保留"继续提醒"） */
-function onWarningDismissed(contactId: number) {
+function onWarningDismissed(contactId: string) {
   setWarningDismissed(contactId, true)
 }
 
 /** 继续提醒：清除 dismissed 标记，角标重新出现 */
-function onWarningResumed(contactId: number) {
+function onWarningResumed(contactId: string) {
   setWarningDismissed(contactId, false)
 }
 
-function setWarningDismissed(contactId: number, dismissed: boolean) {
+function setWarningDismissed(contactId: string, dismissed: boolean) {
   warnings.value = warnings.value.map((w) =>
     w.contactId === contactId ? { ...w, dismissed } : w
   )

@@ -44,6 +44,35 @@
           </view>
         </view>
       </view>
+
+      <!-- 分割线 -->
+      <view class="divider" />
+
+      <!-- 选择练习对象（书友，可选）：选中后本场模拟评分计入该书友亲密度 -->
+      <view class="config-section">
+        <text class="config-label">👤 选择练习对象（可选）</text>
+        <view v-if="!contactOptions.length" class="contact-empty">
+          <text class="contact-empty-text">暂无书友，可跳过（纯能力训练）</text>
+        </view>
+        <view v-else class="tag-group">
+          <view
+            class="tag"
+            :class="{ 'tag--active': selectedContactId === '' }"
+            @click="selectedContactId = ''"
+          >
+            <text class="tag-text">不指定</text>
+          </view>
+          <view
+            v-for="c in contactOptions"
+            :key="c.id"
+            class="tag"
+            :class="{ 'tag--active': selectedContactId === c.id }"
+            @click="selectedContactId = c.id"
+          >
+            <text class="tag-text">{{ c.name }}</text>
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- 随机按钮 -->
@@ -137,7 +166,9 @@ import { ref, reactive, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import FloatingActionButton from '@/components/FloatingActionButton.vue'
 import { getConfig, startSimulation, sendMessage } from '@/api/simulation'
+import { getRelationGraph } from '@/api/relation'
 import type { Message } from '@/types/simulation'
+import type { GraphContact } from '@/types/relationGraph'
 
 // ===== 页面状态 =====
 const pageState = ref<'config' | 'chat'>('config')
@@ -150,12 +181,28 @@ const selectedTheme = ref('')
 const selectedPersonality = ref('')
 const canStart = computed(() => !!selectedTheme.value && !!selectedPersonality.value)
 
+// 练习对象（书友，可选）：从关系图谱拉取，选中后该场模拟评分会计入其亲密度
+const contactOptions = ref<GraphContact[]>([])
+const selectedContactId = ref('')
+
 // 随机填充配置
 function randomConfig() {
   const ti = Math.floor(Math.random() * themeOptions.value.length)
   const pi = Math.floor(Math.random() * personalityOptions.value.length)
   selectedTheme.value = themeOptions.value[ti]
   selectedPersonality.value = personalityOptions.value[pi]
+}
+
+// 拉取书友列表（供"选择练习对象"使用）
+async function loadContactOptions() {
+  try {
+    const res = await getRelationGraph()
+    if (res.code === 0 && res.data) {
+      contactOptions.value = res.data.contacts || []
+    }
+  } catch {
+    // 拉取失败则书友列表为空，不影响纯能力训练
+  }
 }
 
 // TODO: onMounted 时调用 getConfig() 拉取远程配置，替换死数据
@@ -189,6 +236,7 @@ onMounted(() => {
   uni.onKeyboardHeightChange((res: { height: number }) => {
     keyboardHeight.value = res.height
   })
+  loadContactOptions()
 })
 
 // 开始模拟：调 startSimulation 获取开场白 + sessionId
@@ -199,6 +247,7 @@ async function handleStart() {
     const res = await startSimulation({
       theme: selectedTheme.value,
       personality: selectedPersonality.value,
+      relatedContactId: selectedContactId.value || undefined,
     })
     if (res.code === 0) {
       sessionId.value = res.data.sessionId
@@ -371,6 +420,17 @@ async function scrollToBottom() {
   height: 1rpx;
   background-color: #F0F0F0;
   margin: 24rpx 0;
+}
+
+.contact-empty {
+  padding: 16rpx 24rpx;
+  background-color: #F9FAFB;
+  border-radius: 16rpx;
+}
+
+.contact-empty-text {
+  font-size: 24rpx;
+  color: #9CA3AF;
 }
 
 /* 随机按钮 */

@@ -45,6 +45,7 @@ public class ContactDocument {
     private boolean recovering;                 // 是否正在挽救中
     private LocalDateTime warningTime;          // 预警时间
     private boolean suppressWarning;            // 是否暂时抑制预警
+    private LocalDateTime warningDismissedAt;   // 暂不提醒时间（7天冷却），null 表示未冷却
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

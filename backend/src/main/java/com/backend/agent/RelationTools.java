@@ -52,7 +52,7 @@ public class RelationTools {
         if (contact == null) return Map.of("error", "联系人不存在");
 
         int newIntimacy = intimacyService.calculateIntimacy(contact);
-        intimacyService.persistIntimacy(0L, contactId, newIntimacy);
+        intimacyService.persistIntimacy(contactId, newIntimacy);
 
         return Map.of(
                 "contactId", contactId,

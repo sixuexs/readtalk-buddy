@@ -65,6 +65,8 @@ export interface ConfigRes {
 export interface StartSimulationReq {
   theme: string
   personality: string
+  /** 练习对象（书友）的 MongoDB contacts id，可选；为空表示纯能力训练 */
+  relatedContactId?: string
 }
 
 // POST /api/simulation/start 响应体（含 sessionId 与开场白）
