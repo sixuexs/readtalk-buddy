@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -46,8 +47,28 @@ public class UserProfileController {
         if (body.get("status") != null) {
             doc.setStatus(String.valueOf(body.get("status")));
         }
+        if (body.get("avatar") != null) {
+            doc.setAvatar(String.valueOf(body.get("avatar")));
+        }
+        if (body.get("personality") != null) {
+            doc.setPersonality(String.valueOf(body.get("personality")));
+        }
+        if (body.get("interests") != null) {
+            doc.setInterests(toStringList(body.get("interests")));
+        }
+        if (body.get("labels") != null) {
+            doc.setLabels(toStringList(body.get("labels")));
+        }
         doc.setLastUpdated(LocalDateTime.now());
         userProfileRepository.save(doc);
         return ApiResponse.ok(doc);
+    }
+
+    /** 将 List<?> 安全转换为 List<String>。 */
+    private List<String> toStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return new java.util.ArrayList<>();
+        }
+        return list.stream().map(String::valueOf).toList();
     }
 }

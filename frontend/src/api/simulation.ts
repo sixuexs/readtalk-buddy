@@ -10,6 +10,8 @@ import type {
   ScoreRes,
   IceBreakReq,
   IceBreakRes,
+  VirtualCharacter,
+  VirtualCharacterListRes,
 } from '@/types/simulation'
 
 const BASE_URL = 'http://localhost:8080'
@@ -110,6 +112,51 @@ export function icebreakAnalysis(body: IceBreakReq): Promise<IceBreakRes> {
       method: 'POST',
       data: body,
       success: (res) => resolve(res.data as IceBreakRes),
+      fail: reject,
+    })
+  })
+}
+
+// ──── 虚拟人物管理 ────
+
+// 获取虚拟人物列表
+export function getVirtualCharacters(): Promise<VirtualCharacterListRes> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/virtual-characters`,
+      method: 'GET',
+      success: (res) => resolve(res.data as VirtualCharacterListRes),
+      fail: reject,
+    })
+  })
+}
+
+// 新增虚拟人物
+export function createVirtualCharacter(body: {
+  name: string
+  personality: string
+  interests: string[]
+  labels: string[]
+  description?: string
+}): Promise<{ code: number; data: VirtualCharacter }> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/virtual-characters`,
+      method: 'POST',
+      data: body,
+      success: (res) => resolve(res.data as { code: number; data: VirtualCharacter }),
+      fail: reject,
+    })
+  })
+}
+
+// 删除虚拟人物
+export function deleteVirtualCharacter(id: string): Promise<{ code: number; data: { deleted: boolean } }> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/virtual-characters/${id}`,
+      method: 'DELETE',
+      success: (res) => resolve(res.data as { code: number; data: { deleted: boolean } }),
       fail: reject,
     })
   })

@@ -49,6 +49,18 @@
 			"style": {
 				"navigationBarTitleText": "破冰分析"
 			}
+		},
+		{
+			"path": "pages/icebreak/icebreak-result",
+			"style": {
+				"navigationBarTitleText": ""
+			}
+		},
+		{
+			"path": "pages/simulation/virtual-characters",
+			"style": {
+				"navigationBarTitleText": "虚拟人物"
+			}
 		}
 	],
 	"tabBar": {

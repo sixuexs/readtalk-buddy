@@ -5,17 +5,18 @@ import com.backend.agent.CommAssistTools;
 import com.backend.agent.IceBreakTools;
 import com.backend.agent.RelationTools;
 import com.backend.agent.UserProfileTools;
+import com.backend.document.VirtualCharacterDocument;
 import com.backend.model.ApiResponse;
 import com.backend.model.SendRequest;
 import com.backend.model.StartRequest;
+import com.backend.repository.VirtualCharacterRepository;
 import com.backend.service.SimulationService;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/simulation")
@@ -27,16 +28,19 @@ public class SimulationController {
     private final IceBreakTools iceBreakTools;
     private final RelationTools relationTools;
     private final CommAssistTools commAssistTools;
+    private final VirtualCharacterRepository virtualCharacterRepo;
 
     public SimulationController(SimulationService service, AgentRegistry registry,
                                 UserProfileTools profileTools, IceBreakTools iceBreakTools,
-                                RelationTools relationTools, CommAssistTools commAssistTools) {
+                                RelationTools relationTools, CommAssistTools commAssistTools,
+                                VirtualCharacterRepository virtualCharacterRepo) {
         this.service = service;
         this.registry = registry;
         this.profileTools = profileTools;
         this.iceBreakTools = iceBreakTools;
         this.relationTools = relationTools;
         this.commAssistTools = commAssistTools;
+        this.virtualCharacterRepo = virtualCharacterRepo;
     }
 
     // GET /api/simulation/config
@@ -159,12 +163,50 @@ public class SimulationController {
         var result = iceBreakTools.analyzeCard(
                 (List<String>) body.getOrDefault("myInterests", List.of()),
                 (List<String>) body.getOrDefault("myLabels", List.of()),
+                (List<String>) body.getOrDefault("myMood", List.of()),
                 (List<String>) body.getOrDefault("otherInterests", List.of()),
                 (List<String>) body.getOrDefault("otherLabels", List.of()),
                 (String) body.getOrDefault("otherPersonality", ""),
                 (String) body.getOrDefault("context", "初次见面")
         );
         return ApiResponse.ok(result);
+    }
+
+    // ──── 虚拟人物管理 API（情景模拟域）────
+
+    // GET /api/simulation/virtual-characters — 虚拟人物列表
+    @GetMapping("/virtual-characters")
+    public ApiResponse<?> virtualCharacters() {
+        return ApiResponse.ok(virtualCharacterRepo.findAllByOrderByCreatedAtDesc());
+    }
+
+    // POST /api/simulation/virtual-characters — 新增虚拟人物
+    @PostMapping("/virtual-characters")
+    public ApiResponse<?> createVirtualCharacter(@RequestBody Map<String, Object> body) {
+        VirtualCharacterDocument doc = new VirtualCharacterDocument();
+        doc.setName(String.valueOf(body.getOrDefault("name", "")));
+        doc.setPersonality(String.valueOf(body.getOrDefault("personality", "")));
+        doc.setInterests(toStringList(body.get("interests")));
+        doc.setLabels(toStringList(body.get("labels")));
+        doc.setDescription(String.valueOf(body.getOrDefault("description", "")));
+        doc.setCreatedAt(LocalDateTime.now());
+        doc.setUpdatedAt(LocalDateTime.now());
+        return ApiResponse.ok(virtualCharacterRepo.save(doc));
+    }
+
+    // DELETE /api/simulation/virtual-characters/{id} — 删除虚拟人物
+    @DeleteMapping("/virtual-characters/{id}")
+    public ApiResponse<?> deleteVirtualCharacter(@PathVariable String id) {
+        virtualCharacterRepo.deleteById(id);
+        return ApiResponse.ok(Map.of("deleted", true));
+    }
+
+    /** 将 List<?> 安全转换为 List<String>。 */
+    private List<String> toStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return new java.util.ArrayList<>();
+        }
+        return list.stream().map(String::valueOf).toList();
     }
 
     // ──── 沟通辅助 API ────

@@ -6,6 +6,7 @@ import com.backend.repository.UserProfileRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -20,18 +21,22 @@ public class IceBreakTools {
     private final ContactRepository contactRepo;
     private final UserProfileRepository profileRepo;
     private final ChatClient chatClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     public IceBreakTools(ContactRepository contactRepo, UserProfileRepository profileRepo,
-                         ChatClient.Builder chatClientBuilder) {
+                         ChatClient.Builder chatClientBuilder,
+                         ApplicationEventPublisher eventPublisher) {
         this.contactRepo = contactRepo;
         this.profileRepo = profileRepo;
         this.chatClient = chatClientBuilder.build();
+        this.eventPublisher = eventPublisher;
     }
 
-    @Tool(description = "分析对方名片和当前情境，生成破冰建议。传入双方名片信息和当前场景类型")
+    @Tool(description = "分析对方名片和当前情境，生成破冰建议。传入双方名片信息、我的心情状态和当前场景类型")
     public Map<String, Object> analyzeCard(
             @ToolParam(description = "我方的兴趣爱好列表") List<String> myInterests,
             @ToolParam(description = "我方的身份标签") List<String> myLabels,
+            @ToolParam(description = "我的心情/状态标签，如紧张、兴奋、疲惫") List<String> myMood,
             @ToolParam(description = "对方的兴趣爱好列表") List<String> otherInterests,
             @ToolParam(description = "对方的身份标签") List<String> otherLabels,
             @ToolParam(description = "对方的性格描述") String otherPersonality,
@@ -41,6 +46,10 @@ public class IceBreakTools {
         Set<String> commonInterests = new HashSet<>(myInterests);
         commonInterests.retainAll(otherInterests);
 
+        String moodText = myMood == null || myMood.isEmpty()
+                ? "无特别状态"
+                : String.join("、", myMood);
+
         // 构建分析 prompt
         String prompt = String.format("""
                 你是一位社交破冰专家。分析以下情境，生成破冰建议。
@@ -48,6 +57,7 @@ public class IceBreakTools {
                 ## 我方信息
                 - 兴趣爱好：%s
                 - 身份标签：%s
+                - 当前心情/状态：%s
 
                 ## 对方信息
                 - 兴趣爱好：%s
@@ -63,14 +73,18 @@ public class IceBreakTools {
                 ## 输出要求
                 以 JSON 格式返回：
                 {
+                  "openings": ["开场白1", "开场白2", "开场白3"],
                   "topics": ["建议话题1", "建议话题2", "建议话题3"],
-                  "strategy": "破冰策略（50字以内）",
-                  "warnings": ["注意事项1", "注意事项2"],
-                  "commonGroundPoints": ["共同点1", "共同点2"]
+                  "warnings": ["避雷1", "避雷2"]
                 }
+                要求：
+                - openings 给 3 条不同风格的自然开场白，兼顾我方当前状态（如紧张时给更放松的切入方式）
+                - topics 给 3 条建议话题，优先基于共同兴趣
+                - warnings 给需要避开的雷区（结合对方性格与场景）
                 只返回JSON。""",
                 String.join("、", myInterests),
                 String.join("、", myLabels),
+                moodText,
                 String.join("、", otherInterests),
                 String.join("、", otherLabels),
                 otherPersonality,
@@ -95,7 +109,9 @@ public class IceBreakTools {
             contact.setUpdatedAt(LocalDateTime.now());
             ContactDocument saved = contactRepo.save(contact);
 
-            // 发布 ContactAdded 事件
+            // 发布 ContactAdded 事件 → RelationAgent 可联动（初始化亲密度等）
+            eventPublisher.publishEvent(new AgentEvent.ContactAdded(saved.getId(), saved.getName()));
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("contactId", saved.getId());
             response.put("contact", saved);

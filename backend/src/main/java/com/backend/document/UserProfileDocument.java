@@ -49,6 +49,10 @@ public class UserProfileDocument {
     private String displayName;                     // 名片显示名
     private String biography;                       // 个人简介
     private String status;                          // 当前状态签名（如"正在读《三体》"）
+    private String avatar;                          // 头像（emoji 字符，如 🐱）
+    private String personality;                     // 性格描述
+    private List<String> interests = new ArrayList<>();  // 兴趣爱好
+    private List<String> labels = new ArrayList<>();     // 标签
 
     private LocalDateTime lastUpdated;
 

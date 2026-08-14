@@ -125,6 +125,7 @@ export interface SessionListRes {
 export interface IceBreakReq {
   myInterests: string[]
   myLabels: string[]
+  myMood?: string[]
   otherInterests: string[]
   otherLabels: string[]
   otherPersonality: string
@@ -133,10 +134,9 @@ export interface IceBreakReq {
 
 // 破冰分析结果
 export interface IceBreakAnalysis {
+  openings: string[]
   topics: string[]
-  strategy: string
   warnings: string[]
-  commonGroundPoints: string[]
 }
 
 // POST /api/simulation/icebreak 响应体
@@ -147,4 +147,20 @@ export interface IceBreakRes {
     contact: Record<string, unknown>
     analysis: IceBreakAnalysis
   }
+}
+
+// ──── 虚拟人物（情景模拟域）────
+
+export interface VirtualCharacter {
+  id: string
+  name: string
+  personality: string
+  interests: string[]
+  labels: string[]
+  description: string
+}
+
+export interface VirtualCharacterListRes {
+  code: number
+  data: VirtualCharacter[]
 }

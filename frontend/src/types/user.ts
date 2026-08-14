@@ -4,7 +4,10 @@ export interface UserProfile {
   displayName: string
   biography: string
   status: string
-  avatarUrl: string
+  avatar: string
+  personality: string
+  interests: string[]
+  labels: string[]
 }
 
 /** PUT /api/user/profile 请求体 */
@@ -13,6 +16,10 @@ export interface UpdateProfileReq {
   displayName: string
   biography: string
   status: string
+  avatar: string
+  personality: string
+  interests: string[]
+  labels: string[]
 }
 
 /** GET/PUT /api/user/profile 响应体 */
