@@ -115,7 +115,7 @@ public class SimulationService {
         return data;
     }
 
-    // 获取会话历史（含评分）
+    // 获取会话历史（含评分 + 自评）
     public Map<String, Object> getHistory(String sessionId) {
         List<ChatMessage> history = store.getMessages(sessionId);
         Map<String, Object> data = new HashMap<>();
@@ -134,6 +134,24 @@ public class SimulationService {
             evalMap.put("suggestions", eval.getSuggestions());
             data.put("evaluation", evalMap);
         });
+        // 附带复盘自评（如果有）
+        store.getSelfReview(sessionId).ifPresent(review -> {
+            data.put("selfState", review.selfState());
+            data.put("selfComment", review.selfComment());
+        });
+        return data;
+    }
+
+    // 保存会后复盘自评
+    public Map<String, Object> saveSelfReview(String sessionId, String selfState, String selfComment) {
+        if (!store.sessionExists(sessionId)) {
+            throw new RuntimeException("会话不存在: " + sessionId);
+        }
+        store.saveSelfReview(sessionId, selfState, selfComment);
+        Map<String, Object> data = new HashMap<>();
+        data.put("saved", true);
+        data.put("selfState", selfState);
+        data.put("selfComment", selfComment);
         return data;
     }
 

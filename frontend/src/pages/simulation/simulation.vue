@@ -98,13 +98,15 @@
   <!-- ==================== 聊天页 ==================== -->
   <!-- 聊天页不显示底部 tab bar，避免键盘弹起时漏出 -->
   <view v-else class="chat-page">
-    <!-- 顶部标题栏：返回 + 所选主题 -->
+    <!-- 顶部标题栏：返回 + 所选主题 + 结束按钮 -->
     <view class="title-bar">
       <view class="title-back" @click="pageState = 'config'">
         <text class="title-back-icon">←</text>
       </view>
       <text class="title-text">{{ selectedTheme }}</text>
-      <view class="title-placeholder" />
+      <view class="title-end" @click="handleEnd">
+        <text class="title-end-text">结束</text>
+      </view>
     </view>
 
     <!-- 聊天区域 -->
@@ -323,6 +325,35 @@ async function scrollToBottom() {
   await nextTick()
   scrollIntoId.value = 'msg-anchor'
 }
+
+// 结束模拟：弹窗询问是否立即复盘
+function handleEnd() {
+  // 本地降级会话无后端数据，不支持复盘
+  if (!sessionId.value || sessionId.value.startsWith('local-')) {
+    uni.showToast({ title: '离线会话不支持复盘', icon: 'none' })
+    pageState.value = 'config'
+    return
+  }
+
+  uni.showModal({
+    title: '结束模拟',
+    content: '是否立即复盘本次对话？',
+    confirmText: '立即复盘',
+    cancelText: '暂不复盘',
+    success: (res) => {
+      if (res.confirm) {
+        uni.navigateTo({
+          url: `/pages/assist/review?sessionId=${sessionId.value}`,
+        })
+        // 复盘页承载评分与自评，本场聊天结束
+        pageState.value = 'config'
+      } else if (res.cancel) {
+        // 暂不复盘：本场结束，返回配置页
+        pageState.value = 'config'
+      }
+    },
+  })
+}
 </script>
 
 <style scoped>
@@ -523,8 +554,18 @@ async function scrollToBottom() {
   color: #333333;
 }
 
-.title-placeholder {
+.title-end {
   width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-end-text {
+  font-size: 28rpx;
+  color: #5B8DEF;
+  font-weight: 600;
 }
 
 .chat-area {

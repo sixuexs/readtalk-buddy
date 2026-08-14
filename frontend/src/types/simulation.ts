@@ -40,6 +40,18 @@ export interface HistoryRes {
   data: {
     messages: Message[]
     evaluation?: EvaluationSummary & { score: number }
+    selfState?: string
+    selfComment?: string
+  }
+}
+
+// POST /api/simulation/self-review 响应体
+export interface SelfReviewRes {
+  code: number
+  data: {
+    saved: boolean
+    selfState: string
+    selfComment: string
   }
 }
 

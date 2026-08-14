@@ -42,6 +42,10 @@ public class ConversationDocument {
 
     private Evaluation evaluation;         // 详细评分（维度分 + 评语 + 标签）
 
+    /** 会后复盘自评（对应评价体系 self_state / self_comment） */
+    private String selfState;              // 交流时的个人状态标签（顿号拼接，如"紧张、投入"）
+    private String selfComment;            // 用户自评评语
+
     private List<MessageItem> messages = new ArrayList<>();
 
     private LocalDateTime createdAt;

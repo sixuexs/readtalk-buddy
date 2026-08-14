@@ -85,6 +85,16 @@ public class SimulationController {
         return ApiResponse.ok(service.scoreConversation(sessionId));
     }
 
+    // POST /api/simulation/self-review?sessionId=xxx — 保存会后复盘自评
+    @PostMapping("/self-review")
+    public ApiResponse<?> selfReview(@RequestParam String sessionId,
+                                     @RequestBody Map<String, String> body) {
+        return ApiResponse.ok(service.saveSelfReview(
+                sessionId,
+                body.getOrDefault("selfState", ""),
+                body.getOrDefault("selfComment", "")));
+    }
+
     // POST /api/simulation/agent — 通过 ReactAgent 处理请求（演示多智能体架构）
     @PostMapping("/agent")
     public ApiResponse<?> agent(@RequestBody Map<String, Object> input) {

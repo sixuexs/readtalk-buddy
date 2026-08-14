@@ -139,6 +139,29 @@ public class ConversationStore {
         });
     }
 
+    /**
+     * 保存会后复盘自评（状态标签 + 评语）
+     */
+    public void saveSelfReview(String sessionId, String selfState, String selfComment) {
+        repo.findById(sessionId).ifPresent(doc -> {
+            doc.setSelfState(selfState);
+            doc.setSelfComment(selfComment);
+            doc.setUpdatedAt(LocalDateTime.now());
+            repo.save(doc);
+        });
+    }
+
+    /** 自评结果 */
+    public record SelfReview(String selfState, String selfComment) {}
+
+    /**
+     * 获取自评（如果有）
+     */
+    public Optional<SelfReview> getSelfReview(String sessionId) {
+        return repo.findById(sessionId)
+                .map(doc -> new SelfReview(doc.getSelfState(), doc.getSelfComment()));
+    }
+
     private MessageItem toMessageItem(ChatMessage dto, int order) {
         MessageItem item = new MessageItem();
         item.setMessageOrder(order);

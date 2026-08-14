@@ -92,6 +92,24 @@ export function scoreConversation(sessionId: string): Promise<ScoreRes> {
   })
 }
 
+// 保存会后复盘自评（状态标签 + 评语）
+export function saveSelfReview(
+  sessionId: string,
+  selfState: string,
+  selfComment: string,
+): Promise<import('@/types/simulation').SelfReviewRes> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/self-review?sessionId=${sessionId}`,
+      method: 'POST',
+      data: { selfState, selfComment },
+      success: (res) =>
+        resolve(res.data as import('@/types/simulation').SelfReviewRes),
+      fail: reject,
+    })
+  })
+}
+
 // 获取所有会话摘要列表
 export function getSessions(): Promise<SessionListRes> {
   return new Promise((resolve, reject) => {
