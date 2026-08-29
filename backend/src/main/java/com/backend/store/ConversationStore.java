@@ -93,6 +93,20 @@ public class ConversationStore {
     }
 
     /**
+     * 获取会话关联的书友 id（供删除后重算亲密度）
+     */
+    public Optional<String> getRelatedContactId(String sessionId) {
+        return repo.findById(sessionId).map(ConversationDocument::getRelatedContactId);
+    }
+
+    /**
+     * 删除会话
+     */
+    public void deleteSession(String sessionId) {
+        repo.deleteById(sessionId);
+    }
+
+    /**
      * 获取所有会话的摘要列表（按创建时间倒序）
      */
     public List<SessionSummary> getSessionSummaries() {

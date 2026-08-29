@@ -79,6 +79,12 @@ public class SimulationController {
         return ApiResponse.ok(service.getSessionList());
     }
 
+    // DELETE /api/simulation/sessions/{sessionId} — 删除会话（关联书友的亲密度联动重算）
+    @DeleteMapping("/sessions/{sessionId}")
+    public ApiResponse<?> deleteSession(@PathVariable String sessionId) {
+        return ApiResponse.ok(service.deleteSession(sessionId));
+    }
+
     // POST /api/simulation/score?sessionId=xxx — AI 评分
     @PostMapping("/score")
     public ApiResponse<?> score(@RequestParam String sessionId) {

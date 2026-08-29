@@ -124,6 +124,21 @@ export function getSessions(): Promise<SessionListRes> {
   })
 }
 
+// 删除会话（后端同步删除 + 联动重算关联书友亲密度）
+export function deleteSession(
+  sessionId: string,
+): Promise<{ code: number; data: { deleted: boolean; sessionId: string } }> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/sessions/${sessionId}`,
+      method: 'DELETE',
+      success: (res) =>
+        resolve(res.data as { code: number; data: { deleted: boolean; sessionId: string } }),
+      fail: reject,
+    })
+  })
+}
+
 // 破冰分析
 export function icebreakAnalysis(body: IceBreakReq): Promise<IceBreakRes> {
   return new Promise((resolve, reject) => {

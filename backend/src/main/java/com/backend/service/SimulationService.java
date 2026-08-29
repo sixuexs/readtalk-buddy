@@ -25,12 +25,18 @@ public class SimulationService {
     private final ChatClient chatClient;
     private final ConversationStore store;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.backend.repository.ContactRepository contactRepo;
+    private final IntimacyService intimacyService;
 
     public SimulationService(ChatClient.Builder chatClientBuilder, ConversationStore store,
-                             ApplicationEventPublisher eventPublisher) {
+                             ApplicationEventPublisher eventPublisher,
+                             com.backend.repository.ContactRepository contactRepo,
+                             IntimacyService intimacyService) {
         this.chatClient = chatClientBuilder.build();
         this.store = store;
         this.eventPublisher = eventPublisher;
+        this.contactRepo = contactRepo;
+        this.intimacyService = intimacyService;
     }
 
     // 获取可用配置
@@ -158,6 +164,33 @@ public class SimulationService {
     // 获取所有会话摘要列表
     public List<SessionSummary> getSessionList() {
         return store.getSessionSummaries();
+    }
+
+    // 删除会话；若该会话关联了书友，删除后重算该书友亲密度（其深度/质量分量曾计入此会话）
+    public Map<String, Object> deleteSession(String sessionId) {
+        if (!store.sessionExists(sessionId)) {
+            throw new RuntimeException("会话不存在: " + sessionId);
+        }
+        String contactId = store.getRelatedContactId(sessionId).orElse(null);
+        store.deleteSession(sessionId);
+
+        if (contactId != null && !contactId.isBlank()) {
+            try {
+                contactRepo.findById(contactId).ifPresent(contact -> {
+                    int score = intimacyService.calculateIntimacy(contact);
+                    intimacyService.persistIntimacy(contactId, score);
+                    log.info("deleteSession: 会话 {} 关联书友 {} 亲密度已重算为 {}", sessionId, contact.getName(), score);
+                });
+            } catch (Exception e) {
+                // 亲密度重算失败不阻断删除
+                log.warn("deleteSession: 重算书友 {} 亲密度失败: {}", contactId, e.getMessage());
+            }
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("deleted", true);
+        data.put("sessionId", sessionId);
+        return data;
     }
 
     // 对会话进行 AI 评分
