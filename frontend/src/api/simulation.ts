@@ -139,6 +139,18 @@ export function deleteSession(
   })
 }
 
+// 生成/更新用户画像（AI 提升计划）
+export function assessProfile(): Promise<{ code: number; data: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/profile/assess`,
+      method: 'POST',
+      success: (res) => resolve(res.data as { code: number; data: Record<string, unknown> }),
+      fail: reject,
+    })
+  })
+}
+
 // 破冰分析
 export function icebreakAnalysis(body: IceBreakReq): Promise<IceBreakRes> {
   return new Promise((resolve, reject) => {

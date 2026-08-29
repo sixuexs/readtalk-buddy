@@ -67,6 +67,12 @@
 			"style": {
 				"navigationBarTitleText": "会后复盘"
 			}
+		},
+		{
+			"path": "pages/plan/plan",
+			"style": {
+				"navigationBarTitleText": "提升计划"
+			}
 		}
 	],
 	"tabBar": {

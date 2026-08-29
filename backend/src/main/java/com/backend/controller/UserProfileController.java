@@ -71,6 +71,27 @@ public class UserProfileController {
         return ApiResponse.ok(doc);
     }
 
+    /** 更新周目标打卡状态（status 与 weeklyGoals 下标对齐）。 */
+    @PutMapping("/profile/weekly-goals")
+    public ApiResponse<?> updateWeeklyGoals(@RequestBody Map<String, Object> body) {
+        Long userId = body.get("userId") == null ? 1L : Long.valueOf(String.valueOf(body.get("userId")));
+        UserProfileDocument doc = userProfileRepository.findByUserId(userId)
+                .or(() -> userProfileRepository.findDefault())
+                .orElse(null);
+        if (doc == null) {
+            return new ApiResponse<>(404, Map.of("message", "profile not found"));
+        }
+        if (!(body.get("status") instanceof List<?> list)) {
+            return new ApiResponse<>(400, Map.of("message", "status must be a list"));
+        }
+        doc.setWeeklyGoalsStatus(list.stream()
+                .map(v -> Boolean.parseBoolean(String.valueOf(v)))
+                .toList());
+        doc.setLastUpdated(LocalDateTime.now());
+        userProfileRepository.save(doc);
+        return ApiResponse.ok(Map.of("saved", true, "weeklyGoalsStatus", doc.getWeeklyGoalsStatus()));
+    }
+
     /** 将 List<?> 安全转换为 List<String>。 */
     private List<String> toStringList(Object value) {
         if (!(value instanceof List<?> list)) {

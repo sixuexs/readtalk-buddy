@@ -41,6 +41,7 @@ public class UserProfileDocument {
     // AI 生成的提升计划
     private String improvementPlan;                 // 专属提升路线
     private List<String> weeklyGoals;               // 每周目标
+    private List<Boolean> weeklyGoalsStatus = new ArrayList<>();  // 周目标打卡状态（与 weeklyGoals 下标对齐）
 
     private int totalSessions;                      // 累计会话数
 

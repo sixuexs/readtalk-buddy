@@ -96,15 +96,7 @@ const RADAR_INDICATORS = [
 
 const RADAR_FALLBACK: number[] = [60, 70, 65, 55, 75]
 
-// ── Line chart mock data ──
-const LINE_MONTHS = ['3月', '4月', '5月', '6月', '7月']
-const LINE_SERIES_CONFIG = [
-  { name: '清晰度', data: [55, 60, 62, 65, 70], color: '#3B9EFF' },
-  { name: '逻辑性', data: [60, 58, 64, 68, 72], color: '#2ECFA0' },
-  { name: '共情倾听', data: [50, 55, 58, 62, 65], color: '#FFAB40' },
-  { name: '互动性', data: [45, 52, 55, 60, 63], color: '#FF7EB3' },
-  { name: '松弛感', data: [65, 62, 60, 58, 60], color: '#A78BFA' },
-]
+// ── Line chart mock removed: trend uses real scoreHistory ──
 
 // ── Feature grid items ──
 interface FeatureItem {
@@ -121,11 +113,10 @@ const featureItems: FeatureItem[] = [
   {
     key: 'promotion',
     label: '提升计划',
-    subtitle: '即将上线',
     iconText: '↑',
     bgColor: '#FFF3E0',
     iconColor: '#FF8A5C',
-    action: () => uni.showToast({ title: '提升计划即将上线', icon: 'none' }),
+    action: () => uni.navigateTo({ url: '/pages/plan/plan' }),
   },
   {
     key: 'relation',
@@ -169,8 +160,12 @@ const featureItems: FeatureItem[] = [
   },
 ]
 
-// ── Fetch user profile for radar data ──
-async function fetchRadarData(): Promise<number[]> {
+// ── Line chart（真实数据：scoreHistory 总分趋势，最多 10 条） ──
+const TREND_MAX = 10
+const trendPoints = ref<{ label: string; score: number }[]>([])
+
+// ── Fetch user profile for radar + trend data ──
+async function fetchProfileData(): Promise<{ radar: number[]; trend: { label: string; score: number }[] }> {
   return new Promise((resolve) => {
     uni.request({
       url: `${BASE_URL}/api/user/profile?userId=1`,
@@ -182,15 +177,29 @@ async function fetchRadarData(): Promise<number[]> {
             const v = (data as Record<string, unknown>)[ind.key]
             return typeof v === 'number' ? v : 0
           })
-          if (values.some((v) => v > 0)) {
-            resolve(values)
-            return
-          }
+          const radar = values.some((v) => v > 0) ? values : RADAR_FALLBACK
+
+          const history = Array.isArray((data as any).scoreHistory)
+            ? ((data as any).scoreHistory as { score: number; scoredAt: string }[])
+            : []
+          const sorted = [...history]
+            .filter((h) => typeof h.score === 'number')
+            .sort(
+              (a, b) =>
+                new Date(a.scoredAt).getTime() - new Date(b.scoredAt).getTime(),
+            )
+          const trend = sorted.slice(-TREND_MAX).map((h, i) => ({
+            label: sorted.length > 5 ? `#${i + 1}` : String((h as any).theme ?? '').slice(0, 4),
+            score: h.score,
+          }))
+
+          resolve({ radar, trend })
+          return
         }
-        resolve(RADAR_FALLBACK)
+        resolve({ radar: RADAR_FALLBACK, trend: [] })
       },
       fail: () => {
-        resolve(RADAR_FALLBACK)
+        resolve({ radar: RADAR_FALLBACK, trend: [] })
       },
     })
   })
@@ -227,42 +236,53 @@ function buildRadarOption(radarValues: number[]) {
   }
 }
 
-// ── Build echarts line option ──
+// ── Build echarts line option（真实总分趋势） ──
 function buildLineOption() {
+  const points = trendPoints.value
+
+  if (points.length < 2) {
+    // 数据不足：显示占位提示
+    return {
+      title: {
+        text: '完成更多训练后解锁趋势',
+        left: 'center',
+        top: 'middle',
+        textStyle: { color: '#B0BCCB', fontSize: 13, fontWeight: 'normal' },
+      },
+    }
+  }
+
   return {
     tooltip: { trigger: 'axis' },
-    legend: {
-      data: LINE_SERIES_CONFIG.map((s) => s.name),
-      bottom: 0,
-      textStyle: { fontSize: 10, color: '#5C6B7A' },
-      itemWidth: 16,
-      itemHeight: 8,
-    },
-    grid: { top: 12, right: 16, bottom: 48, left: 40 },
+    grid: { top: 24, right: 20, bottom: 28, left: 40 },
     xAxis: {
       type: 'category',
-      data: LINE_MONTHS,
-      axisLine: { lineStyle: { color: '#E8ECF4' } },
+      data: points.map((p) => p.label),
+      axisLine: { lineStyle: { color: '#E2E8F0' } },
       axisTick: { show: false },
-      axisLabel: { color: '#8E9DAB' },
+      axisLabel: { color: '#8E9DAB', fontSize: 10 },
     },
     yAxis: {
       type: 'value',
-      min: 40,
-      max: 80,
-      splitLine: { lineStyle: { color: '#F0E4F0', type: 'dashed' as const } },
-      axisLabel: { color: '#8E9DAB' },
+      min: 0,
+      max: 100,
+      splitLine: { lineStyle: { color: '#F0F4F8', type: 'dashed' as const } },
+      axisLabel: { color: '#8E9DAB', fontSize: 10 },
     },
-    series: LINE_SERIES_CONFIG.map((s) => ({
-      name: s.name,
-      type: 'line',
-      data: s.data,
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 5,
-      lineStyle: { color: s.color, width: 2 },
-      itemStyle: { color: s.color },
-    })),
+    series: [
+      {
+        name: '综合分',
+        type: 'line',
+        data: points.map((p) => p.score),
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: '#3B9EFF', width: 2 },
+        itemStyle: { color: '#3B9EFF' },
+        areaStyle: { color: 'rgba(59, 158, 255, 0.08)' },
+        label: { show: true, fontSize: 10, color: '#5C6B7A' },
+      },
+    ],
   }
 }
 
@@ -322,8 +342,9 @@ function initMiniCanvas(
 
 // ── Initialize both charts ──
 async function initCharts() {
-  const radarValues = await fetchRadarData()
-  const radarOption = buildRadarOption(radarValues)
+  const { radar, trend } = await fetchProfileData()
+  trendPoints.value = trend
+  const radarOption = buildRadarOption(radar)
   const lineOption = buildLineOption()
 
   // #ifdef H5

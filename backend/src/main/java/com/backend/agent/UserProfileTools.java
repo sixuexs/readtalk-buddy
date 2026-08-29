@@ -142,6 +142,10 @@ public class UserProfileTools {
             profile.setTopWeaknesses((List<String>) aiResult.get("topWeaknesses"));
             profile.setImprovementPlan((String) aiResult.get("improvementPlan"));
             profile.setWeeklyGoals((List<String>) aiResult.get("weeklyGoals"));
+            // 新计划生成 → 打卡状态重置（与 goals 数量对齐）
+            List<String> newGoals = profile.getWeeklyGoals();
+            profile.setWeeklyGoalsStatus(newGoals == null ? new ArrayList<>()
+                    : new ArrayList<>(java.util.Collections.nCopies(newGoals.size(), false)));
             profile.setTotalSessions(totalSessions);
             profile.setLastUpdated(LocalDateTime.now());
             profileRepo.save(profile);
