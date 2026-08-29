@@ -19,24 +19,31 @@ public class UserProfileController {
 
     private final UserProfileRepository userProfileRepository;
 
-    /** 获取用户档案（含名片字段）。userId 默认 1。 */
+    /** 获取用户档案（含名片字段）。userId 默认 1；查无时回退单用户 default 文档。 */
     @GetMapping("/profile")
     public ApiResponse<?> getProfile(@RequestParam(value = "userId", required = false) Long userId) {
         Long uid = userId == null ? 1L : userId;
-        UserProfileDocument doc = userProfileRepository.findByUserId(uid).orElse(null);
+        UserProfileDocument doc = userProfileRepository.findByUserId(uid)
+                .or(() -> userProfileRepository.findDefault())
+                .orElse(null);
         if (doc == null) {
             return new ApiResponse<>(404, Map.of("message", "profile not found"));
         }
         return ApiResponse.ok(doc);
     }
 
-    /** 更新名片字段（displayName/biography/status）。仅更新传入的非 null 字段。 */
+    /** 更新名片字段。文档不存在时自动创建（单用户 id="default"），确保保存不丢失。 */
     @PutMapping("/profile")
     public ApiResponse<?> updateProfile(@RequestBody Map<String, Object> body) {
         Long userId = body.get("userId") == null ? 1L : Long.valueOf(String.valueOf(body.get("userId")));
-        UserProfileDocument doc = userProfileRepository.findByUserId(userId).orElse(null);
-        if (doc == null) {
-            return new ApiResponse<>(404, Map.of("message", "profile not found"));
+        UserProfileDocument doc = userProfileRepository.findByUserId(userId)
+                .or(() -> userProfileRepository.findDefault())
+                .orElseGet(UserProfileDocument::new);
+        if (doc.getId() == null || doc.getId().isBlank()) {
+            doc.setId("default");
+        }
+        if (doc.getUserId() == null) {
+            doc.setUserId(userId);
         }
         if (body.get("displayName") != null) {
             doc.setDisplayName(String.valueOf(body.get("displayName")));

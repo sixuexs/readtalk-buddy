@@ -327,7 +327,7 @@ async function handleSave() {
 
   loading.value = true
   try {
-    await updateUserProfile({
+    const res = await updateUserProfile({
       userId: form.userId,
       displayName: form.displayName.trim(),
       biography: form.biography.trim(),
@@ -337,6 +337,11 @@ async function handleSave() {
       interests,
       labels: form.labels,
     })
+    // 后端业务失败（如 code != 0）也视为保存失败，不假成功
+    if (res.code !== 0) {
+      uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+      return
+    }
     form.interests = interests
     interestsText.value = interests.join('、')
     uni.showToast({ title: '保存成功', icon: 'success' })

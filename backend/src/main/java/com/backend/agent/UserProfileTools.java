@@ -127,6 +127,9 @@ public class UserProfileTools {
             UserProfileDocument profile = profileRepo.findDefault()
                     .orElse(new UserProfileDocument());
             profile.setId("default");
+            if (profile.getUserId() == null) {
+                profile.setUserId(1L);  // 单用户模式，与 /api/user 默认 userId 对齐
+            }
             profile.setAvgClarity((int) avgClarity);
             profile.setAvgLogicality((int) avgLogicality);
             profile.setAvgEmpathyListening((int) avgEmpathyListening);
