@@ -10,6 +10,8 @@ import type {
   ScoreRes,
   IceBreakReq,
   IceBreakRes,
+  IceBreakRefreshReq,
+  IceBreakRefreshRes,
   VirtualCharacter,
   VirtualCharacterListRes,
 } from '@/types/simulation'
@@ -130,6 +132,19 @@ export function icebreakAnalysis(body: IceBreakReq): Promise<IceBreakRes> {
       method: 'POST',
       data: body,
       success: (res) => resolve(res.data as IceBreakRes),
+      fail: reject,
+    })
+  })
+}
+
+// 单类建议再生成（不建联系人）
+export function icebreakRefresh(body: IceBreakRefreshReq): Promise<IceBreakRefreshRes> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/simulation/icebreak/refresh`,
+      method: 'POST',
+      data: body,
+      success: (res) => resolve(res.data as IceBreakRefreshRes),
       fail: reject,
     })
   })

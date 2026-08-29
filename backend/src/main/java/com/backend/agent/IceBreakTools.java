@@ -32,6 +32,92 @@ public class IceBreakTools {
         this.eventPublisher = eventPublisher;
     }
 
+    /** 单类建议再生成（不建联系人、不发事件）。section: openings / topics / warnings */
+    public Map<String, Object> refreshSection(
+            List<String> myInterests, List<String> myLabels, List<String> myMood,
+            List<String> otherInterests, List<String> otherLabels, String otherPersonality,
+            String context, String section) {
+
+        Set<String> commonInterests = new HashSet<>(myInterests);
+        commonInterests.retainAll(otherInterests);
+        String moodText = myMood == null || myMood.isEmpty()
+                ? "无特别状态"
+                : String.join("、", myMood);
+
+        String task = switch (section) {
+            case "topics" ->
+                    "生成 3 条建议话题，优先基于共同兴趣，返回 JSON：{\"topics\": [\"话题1\", \"话题2\", \"话题3\"]}";
+            case "warnings" ->
+                    "生成 3 条避雷提醒（结合对方性格与当前场景），返回 JSON：{\"warnings\": [\"避雷1\", \"避雷2\", \"避雷3\"]}";
+            default ->
+                    "生成 3 条不同风格的自然开场白，兼顾我方当前状态（如紧张时给更放松的切入方式），返回 JSON：{\"openings\": [\"开场白1\", \"开场白2\", \"开场白3\"]}";
+        };
+
+        String prompt = String.format("""
+                你是一位社交破冰专家。根据以下信息，%s
+
+                ## 我方信息
+                - 兴趣爱好：%s
+                - 身份标签：%s
+                - 当前心情/状态：%s
+
+                ## 对方信息
+                - 兴趣爱好：%s
+                - 身份标签：%s
+                - 性格：%s
+
+                ## 当前场景
+                %s
+
+                ## 共同兴趣
+                %s
+
+                只返回JSON，不要输出其他内容。""",
+                task,
+                String.join("、", myInterests),
+                String.join("、", myLabels),
+                moodText,
+                String.join("、", otherInterests),
+                String.join("、", otherLabels),
+                otherPersonality,
+                context,
+                commonInterests.isEmpty() ? "无明显共同兴趣" : String.join("、", commonInterests));
+
+        try {
+            String result = chatClient.prompt().user(prompt).call().content();
+            String json = stripMarkdown(result);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> aiResult = new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, Map.class);
+            List<String> items = aiResult.get(section) instanceof List<?> list
+                    ? list.stream().map(String::valueOf).toList()
+                    : List.of();
+            return Map.of("section", section, "items", items);
+        } catch (Exception e) {
+            return Map.of("status", "error", "message", "建议再生成失败: " + e.getMessage());
+        }
+    }
+
+    /** 去除 LLM 响应中的 markdown 代码块包裹，提取 JSON 子串。 */
+    private String stripMarkdown(String response) {
+        if (response == null) return "";
+        String s = response.trim();
+        if (s.startsWith("```")) {
+            int start = s.indexOf('\n');
+            int end = s.lastIndexOf("```");
+            if (start >= 0 && end > start) {
+                s = s.substring(start + 1, end).trim();
+            }
+        }
+        if (!s.startsWith("{")) {
+            int l = s.indexOf('{');
+            int r = s.lastIndexOf('}');
+            if (l >= 0 && r > l) {
+                s = s.substring(l, r + 1);
+            }
+        }
+        return s;
+    }
+
     @Tool(description = "分析对方名片和当前情境，生成破冰建议。传入双方名片信息、我的心情状态和当前场景类型")
     public Map<String, Object> analyzeCard(
             @ToolParam(description = "我方的兴趣爱好列表") List<String> myInterests,

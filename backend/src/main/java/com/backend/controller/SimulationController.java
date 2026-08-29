@@ -182,6 +182,23 @@ public class SimulationController {
         return ApiResponse.ok(result);
     }
 
+    // POST /api/simulation/icebreak/refresh — 单类建议再生成（不建联系人）
+    @PostMapping("/icebreak/refresh")
+    public ApiResponse<?> icebreakRefresh(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        var result = iceBreakTools.refreshSection(
+                (List<String>) body.getOrDefault("myInterests", List.of()),
+                (List<String>) body.getOrDefault("myLabels", List.of()),
+                (List<String>) body.getOrDefault("myMood", List.of()),
+                (List<String>) body.getOrDefault("otherInterests", List.of()),
+                (List<String>) body.getOrDefault("otherLabels", List.of()),
+                (String) body.getOrDefault("otherPersonality", ""),
+                (String) body.getOrDefault("context", "初次见面"),
+                (String) body.getOrDefault("section", "openings")
+        );
+        return ApiResponse.ok(result);
+    }
+
     // ──── 虚拟人物管理 API（情景模拟域）────
 
     // GET /api/simulation/virtual-characters — 虚拟人物列表

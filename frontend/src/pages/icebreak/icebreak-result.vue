@@ -8,7 +8,12 @@
 
       <!-- 开场白建议（3 条） -->
       <view class="result-card">
-        <text class="result-card-label">开场白建议</text>
+        <view class="result-card-head">
+          <text class="result-card-label">开场白建议</text>
+          <view class="refresh-btn" @tap="refreshSection('openings')">
+            <text class="refresh-icon" :class="{ 'refresh-icon--spinning': refreshing === 'openings' }">⟳</text>
+          </view>
+        </view>
         <view class="opening-list">
           <view v-for="(o, idx) in analysis.openings" :key="idx" class="opening-item">
             <view class="opening-num">
@@ -24,7 +29,12 @@
 
       <!-- 话题建议 -->
       <view class="result-card">
-        <text class="result-card-label">话题建议</text>
+        <view class="result-card-head">
+          <text class="result-card-label">话题建议</text>
+          <view class="refresh-btn" @tap="refreshSection('topics')">
+            <text class="refresh-icon" :class="{ 'refresh-icon--spinning': refreshing === 'topics' }">⟳</text>
+          </view>
+        </view>
         <view class="result-list">
           <view v-for="(t, idx) in analysis.topics" :key="idx" class="result-list-item">
             <text class="result-list-num">{{ idx + 1 }}.</text>
@@ -38,7 +48,12 @@
 
       <!-- 避雷指南 -->
       <view class="result-card">
-        <text class="result-card-label">避雷指南</text>
+        <view class="result-card-head">
+          <text class="result-card-label">避雷指南</text>
+          <view class="refresh-btn" @tap="refreshSection('warnings')">
+            <text class="refresh-icon" :class="{ 'refresh-icon--spinning': refreshing === 'warnings' }">⟳</text>
+          </view>
+        </view>
         <view class="result-list">
           <view v-for="(w, idx) in analysis.warnings" :key="idx" class="result-list-item">
             <text class="result-list-dot">●</text>
@@ -61,9 +76,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import { icebreakRefresh } from '@/api/simulation'
 import { icebreakResultStore } from '@/store/icebreak'
-import type { IceBreakAnalysis } from '@/types/simulation'
+import type { IceBreakAnalysis, IceBreakSection } from '@/types/simulation'
 
 // 从跨页缓存读取结果
 const analysis = computed<IceBreakAnalysis>(
@@ -74,6 +90,32 @@ const analysis = computed<IceBreakAnalysis>(
       warnings: [],
     },
 )
+
+// 当前正在刷新的分区（null = 空闲）
+const refreshing = ref<IceBreakSection | null>(null)
+
+/** 单类建议刷新：带原请求上下文重新问 AI，只替换该卡片内容 */
+async function refreshSection(section: IceBreakSection) {
+  if (refreshing.value) return
+  const req = icebreakResultStore.lastReq
+  if (!req) {
+    uni.showToast({ title: '缺少生成参数，请返回重新生成', icon: 'none' })
+    return
+  }
+  refreshing.value = section
+  try {
+    const res = await icebreakRefresh({ ...req, section })
+    if (res.code === 0 && res.data?.items?.length) {
+      icebreakResultStore.analysis = { ...analysis.value, [section]: res.data.items }
+    } else {
+      uni.showToast({ title: '刷新失败，请重试', icon: 'none' })
+    }
+  } catch {
+    uni.showToast({ title: '网络异常，请重试', icon: 'none' })
+  } finally {
+    refreshing.value = null
+  }
+}
 
 function handleRegenerate() {
   uni.navigateBack()
@@ -122,12 +164,44 @@ function handleRegenerate() {
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
+/* 卡片头：标题 + 刷新按钮 */
+.result-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
 .result-card-label {
   font-size: 28rpx;
   font-weight: 600;
   color: #e63d3d;
-  display: block;
-  margin-bottom: 16rpx;
+}
+
+.refresh-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f3f4f6;
+}
+
+.refresh-icon {
+  font-size: 32rpx;
+  color: #6b7280;
+  line-height: 1;
+}
+
+.refresh-icon--spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 开场白 */

@@ -161,6 +161,23 @@ export interface IceBreakRes {
   }
 }
 
+// 可再生成的建议分区
+export type IceBreakSection = 'openings' | 'topics' | 'warnings'
+
+// POST /api/simulation/icebreak/refresh 请求体
+export interface IceBreakRefreshReq extends IceBreakReq {
+  section: IceBreakSection
+}
+
+// POST /api/simulation/icebreak/refresh 响应体
+export interface IceBreakRefreshRes {
+  code: number
+  data: {
+    section: string
+    items: string[]
+  }
+}
+
 // ──── 虚拟人物（情景模拟域）────
 
 export interface VirtualCharacter {

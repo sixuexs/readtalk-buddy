@@ -192,7 +192,7 @@ import { getRelationGraph } from '@/api/relation'
 import { getUserProfile } from '@/api/user'
 import { icebreakResultStore } from '@/store/icebreak'
 import type { GraphContact } from '@/types/relationGraph'
-import type { VirtualCharacter } from '@/types/simulation'
+import type { IceBreakReq, VirtualCharacter } from '@/types/simulation'
 
 // ── ① 当前情境 ──
 const CONTEXT_PRESETS = ['初次见面', '读书会', '工作会议', '聚会', '面试', '社团活动']
@@ -341,7 +341,7 @@ async function handleSubmit() {
   if (submitting.value) return
   submitting.value = true
   try {
-    const res = await icebreakAnalysis({
+    const req: IceBreakReq = {
       myInterests: myCard.interests,
       myLabels: myCard.labels,
       myMood: selectedMood.value,
@@ -349,7 +349,10 @@ async function handleSubmit() {
       otherLabels: otherCard.value.labels,
       otherPersonality: otherCard.value.personality,
       context: [finalContext.value, extraNote.value.trim()].filter(Boolean).join('；') || '初次见面',
-    })
+    }
+    // 缓存请求参数，供结果页单类建议刷新复用
+    icebreakResultStore.lastReq = req
+    const res = await icebreakAnalysis(req)
 
     if (res.code === 0 && res.data) {
       icebreakResultStore.analysis = res.data.analysis
