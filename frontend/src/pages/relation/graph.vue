@@ -71,17 +71,51 @@
         <text class="node-name">{{ node.contact.name }}</text>
       </view>
 
+      <!-- 溢出「+N」芯片：组满折叠，点按弹出全员名单；圆点色=隐藏成员最高预警级 -->
+      <view
+        v-for="chip in overflowChips"
+        :key="chip.key"
+        v-show="bgReady"
+        class="overflow-chip"
+        :style="{ left: chip.x + 'px', top: chip.y + 'px' }"
+        @tap.stop="openGroupPopup(chip.key)"
+      >
+        <text class="overflow-chip-text">+{{ chip.count }}</text>
+        <view
+          v-if="chip.dotColor"
+          class="overflow-chip-dot"
+          :style="{ backgroundColor: chip.dotColor }"
+        />
+      </view>
+
       <view v-if="loadError" class="canvas-error">
         <text class="canvas-error-text">{{ loadError }}</text>
         <view class="canvas-retry" @tap="loadGraphData">
           <text class="canvas-retry-text">重试</text>
         </view>
       </view>
+
+      <!-- 图例：预警圆点配色说明（红橙已拉开色相/明度差） -->
+      <view class="graph-legend">
+        <view class="legend-item">
+          <view class="legend-dot" :style="{ backgroundColor: LEVEL_COLORS.RED }" />
+          <text class="legend-text">滑落预警</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-dot" :style="{ backgroundColor: LEVEL_COLORS.ORANGE }" />
+          <text class="legend-text">沉寂预警</text>
+        </view>
+      </view>
     </view>
 
-    <!-- 通讯录视图 -->
+    <!-- 通讯录视图（左滑可删除关系） -->
     <view v-show="viewMode === 'list'" class="list-wrap">
-      <ContactListView :contacts="contacts" :warnings="warnings" @select="onListSelect" />
+      <ContactListView
+        :contacts="contacts"
+        :warnings="warnings"
+        @select="onListSelect"
+        @delete="onContactDelete"
+      />
     </view>
 
     <!-- 详情弹窗 -->
@@ -95,6 +129,45 @@
       @resumed="onWarningResumed"
     />
 
+    <!-- 分组成员浮层：某环×扇区人数过多时，点图谱「+N」芯片展开查看全员 -->
+    <view v-if="popupGroup" class="group-popup-mask" @tap="closeGroupPopup">
+      <view class="group-popup" @tap.stop>
+        <view class="group-popup-head">
+          <text class="group-popup-title">{{ popupGroup.sectorName }} · {{ popupGroup.ringName }}</text>
+          <text class="group-popup-count">共 {{ popupGroup.members.length }} 人</text>
+          <view class="group-popup-close" @tap="closeGroupPopup">
+            <text class="group-popup-close-text">✕</text>
+          </view>
+        </view>
+        <scroll-view class="group-popup-list" scroll-y>
+          <view
+            v-for="(m, idx) in popupGroup.members"
+            :key="m.id"
+            class="group-popup-item"
+            @tap="onPopupMemberTap(m)"
+          >
+            <text class="gp-rank">{{ idx + 1 }}</text>
+            <view class="gp-avatar" :style="{ backgroundColor: popupAvatarBg(m.id) }">
+              <text class="gp-avatar-text">{{ m.name.charAt(0) }}</text>
+              <view
+                v-if="activeWarning(m.id)"
+                class="gp-badge"
+                :style="{ backgroundColor: popupDotColor(m.id) }"
+              />
+            </view>
+            <view class="gp-info">
+              <text class="gp-name">{{ m.name }}</text>
+              <text v-if="activeWarning(m.id)" class="gp-warn-text">{{ popupWarnLabel(m.id) }}</text>
+            </view>
+            <view class="gp-right">
+              <text class="gp-intimacy">{{ Math.round(m.intimacyScore) }}</text>
+              <text class="gp-intimacy-label">亲密度</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
     <CustomTabBar />
     <FloatingActionButton />
   </view>
@@ -107,8 +180,9 @@ import CustomTabBar from '@/components/CustomTabBar.vue'
 import FloatingActionButton from '@/components/FloatingActionButton.vue'
 import ContactDetail from '@/components/ContactDetail.vue'
 import ContactListView from '@/components/ContactListView.vue'
-import { getRelationGraph } from '@/api/relation'
-import type { GraphContact, GraphWarning } from '@/types/relationGraph'
+import { getRelationGraph, deleteContact } from '@/api/relation'
+import { LEVEL_COLORS, WARN_TYPE_LABELS, levelRank } from '@/constants/warningLevel'
+import type { GraphContact, GraphWarning, WarningLevel } from '@/types/relationGraph'
 
 /** 节点视图模型：x/y 为圆心的画布像素坐标 */
 interface NodeView {
@@ -152,11 +226,7 @@ const SECTORS = ['朋友', '同事', '家人', '同学', 'other']
 const SECTOR_SPAN = (Math.PI * 2) / SECTORS.length // 72°
 const START_ANGLE = -Math.PI / 2 // 从正上方开始
 
-const LEVEL_COLORS: Record<string, string> = {
-  YELLOW: '#FBBF24',
-  ORANGE: '#F97316',
-  RED: '#EF4444',
-}
+const RING_NAMES = ['内环', '二环', '外环']
 
 const SECTOR_FILLS = ['#F0F7FF', '#F0FDF4', '#FEFCE8', '#FDF2F8', '#F8FAFC']
 const NODE_COLORS = ['#60A5FA', '#34D399', '#FBBF24', '#F472B6', '#A78BFA']
@@ -313,9 +383,40 @@ function exportBackground() {
 
 // ==================== 节点布局 ====================
 
-/** 环（intimacy）× 扇区（relationType）分组后沿弧线均匀分布 */
-const nodeViews = computed<NodeView[]>(() => {
-  if (!canvasW.value || !canvasH.value || !contacts.value.length) return []
+/** 同组节点沿弧线的最小间距（px）：40px 节点本体 + 6px 间隙 */
+const NODE_SPACING = 46
+
+/** 溢出芯片视图模型：某组人数超容量时显示 "+N"，点按弹成员浮层 */
+interface OverflowChip {
+  key: string
+  x: number
+  y: number
+  count: number
+  /** 被隐藏成员中最高等级未冷却预警的圆点色；null = 无预警不画点 */
+  dotColor: string | null
+}
+
+/** 成员分组信息（"+N" 浮层展示用） */
+interface GroupInfo {
+  key: string
+  ringName: string
+  sectorName: string
+  /** 组内全员，按亲密度降序 */
+  members: GraphContact[]
+}
+
+/**
+ * 环（intimacy）× 扇区（relationType）分组后沿弧线均匀分布。
+ * 每组容量按所在环弧长计算；超容量时按亲密度降序保留前 N 人，
+ * 其余折叠进末位槽的 "+N" 芯片（芯片圆点 = 被隐藏者最高预警级）。
+ */
+const graphLayout = computed(() => {
+  const nodes: NodeView[] = []
+  const chips: OverflowChip[] = []
+  const groupMap = new Map<string, GroupInfo>()
+  if (!canvasW.value || !canvasH.value || !contacts.value.length) {
+    return { nodes, chips, groupMap }
+  }
   const cx = canvasW.value / 2
   const cy = canvasH.value / 2
   const r3 = Math.min(canvasW.value, canvasH.value) / 2 - 36
@@ -324,21 +425,32 @@ const nodeViews = computed<NodeView[]>(() => {
   const warnMap = new Map<string, GraphWarning>()
   warnings.value.forEach((w) => warnMap.set(w.contactId, w))
 
-  const groups = new Map<string, GraphContact[]>()
+  const rawGroups = new Map<string, { ring: number; sector: number; members: GraphContact[] }>()
   for (const c of contacts.value) {
-    const key = `${ringIndex(c.intimacyScore)}-${sectorIndex(c.relationType)}`
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(c)
+    const ring = ringIndex(c.intimacyScore)
+    const sector = sectorIndex(c.relationType)
+    const key = `${ring}-${sector}`
+    let g = rawGroups.get(key)
+    if (!g) {
+      g = { ring, sector, members: [] }
+      rawGroups.set(key, g)
+    }
+    g.members.push(c)
   }
 
-  const result: NodeView[] = []
-  groups.forEach((members, key) => {
-    const [ring, sector] = key.split('-').map(Number)
-    const radius = ringRadius[ring]
-    const a0 = START_ANGLE + sector * SECTOR_SPAN
-    members.forEach((c, i) => {
-      const angle = a0 + (SECTOR_SPAN * (i + 1)) / (members.length + 1)
-      result.push({
+  rawGroups.forEach((g, key) => {
+    const radius = ringRadius[g.ring]
+    const a0 = START_ANGLE + g.sector * SECTOR_SPAN
+    const sorted = [...g.members].sort((x, y) => y.intimacyScore - x.intimacyScore)
+    const capacity = Math.max(1, Math.floor((radius * SECTOR_SPAN) / NODE_SPACING))
+    const visible = sorted.slice(0, capacity)
+    const hidden = sorted.slice(capacity)
+    // 槽位数 = 可见人数（+ 溢出芯片占 1 槽），均匀分布时给芯片留出末位
+    const slotCount = hidden.length > 0 ? visible.length + 1 : visible.length
+
+    visible.forEach((c, i) => {
+      const angle = a0 + (SECTOR_SPAN * (i + 1)) / (slotCount + 1)
+      nodes.push({
         id: c.id,
         x: cx + radius * Math.cos(angle),
         y: cy + radius * Math.sin(angle),
@@ -347,9 +459,43 @@ const nodeViews = computed<NodeView[]>(() => {
         warning: warnMap.get(c.id) || null,
       })
     })
+
+    if (hidden.length > 0) {
+      const angle = a0 + (SECTOR_SPAN * slotCount) / (slotCount + 1)
+      chips.push({
+        key,
+        x: cx + radius * Math.cos(angle),
+        y: cy + radius * Math.sin(angle),
+        count: hidden.length,
+        dotColor: worstWarningColor(hidden, warnMap),
+      })
+    }
+
+    groupMap.set(key, {
+      key,
+      ringName: RING_NAMES[g.ring],
+      sectorName: SECTORS[g.sector] === 'other' ? '其他' : SECTORS[g.sector],
+      members: sorted,
+    })
   })
-  return result
+
+  return { nodes, chips, groupMap }
 })
+
+const nodeViews = computed(() => graphLayout.value.nodes)
+const overflowChips = computed(() => graphLayout.value.chips)
+
+/** 一组联系人里最高等级且未冷却的预警颜色；无则 null */
+function worstWarningColor(list: GraphContact[], warnMap: Map<string, GraphWarning>): string | null {
+  let best: WarningLevel | null = null
+  for (const c of list) {
+    const w = warnMap.get(c.id)
+    if (w && !w.dismissed && (!best || levelRank(w.level) > levelRank(best))) {
+      best = w.level
+    }
+  }
+  return best ? LEVEL_COLORS[best] : null
+}
 
 /** intimacy → 环序号：内环 ≥70 / 二环 40-69 / 外环 <40 */
 function ringIndex(intimacy: number): number {
@@ -423,6 +569,79 @@ function setWarningDismissed(contactId: string, dismissed: boolean) {
     selectedWarning.value = { ...selectedWarning.value, dismissed }
   }
   // 节点角标由 nodeViews computed 自动联动，无需手动重绘
+}
+
+// ==================== 分组成员浮层 ====================
+
+const popupGroupKey = ref('')
+const popupGroup = computed<GroupInfo | null>(() =>
+  popupGroupKey.value ? graphLayout.value.groupMap.get(popupGroupKey.value) ?? null : null,
+)
+
+function openGroupPopup(key: string) {
+  popupGroupKey.value = key
+}
+
+function closeGroupPopup() {
+  popupGroupKey.value = ''
+}
+
+/** 浮层中点成员：收起浮层并打开详情（与通讯录选择同路径） */
+function onPopupMemberTap(contact: GraphContact) {
+  closeGroupPopup()
+  const warning = warnings.value.find((w) => w.contactId === contact.id) || null
+  showContactDetail(contact, warning)
+}
+
+/** 该联系人的生效预警（非冷却），无则 null */
+function activeWarning(contactId: string): GraphWarning | null {
+  return warnings.value.find((w) => w.contactId === contactId && !w.dismissed) || null
+}
+
+function popupDotColor(contactId: string): string {
+  const w = activeWarning(contactId)
+  return w ? LEVEL_COLORS[w.level] || '#FBBF24' : 'transparent'
+}
+
+function popupWarnLabel(contactId: string): string {
+  const w = activeWarning(contactId)
+  return w ? `${WARN_TYPE_LABELS[w.type]}预警` : ''
+}
+
+function popupAvatarBg(id: string): string {
+  return NODE_COLORS[hashIndex(id, NODE_COLORS.length)]
+}
+
+// ==================== 删除关系（通讯录视图） ====================
+
+/**
+ * 左滑删除确认后调后端删除，成功即本地同步 contacts/warnings。
+ * 图谱视图节点由 graphLayout computed 自动重算，无需额外刷新。
+ */
+function onContactDelete(contact: GraphContact) {
+  uni.showModal({
+    title: '删除关系',
+    content: `确定删除「${contact.name}」吗？删除后图谱与预警中将移除该书友`,
+    confirmColor: '#DC2626',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        const result = await deleteContact(contact.id)
+        if (result.code === 0) {
+          contacts.value = contacts.value.filter((c) => c.id !== contact.id)
+          warnings.value = warnings.value.filter((w) => w.contactId !== contact.id)
+          if (selectedContact.value && selectedContact.value.id === contact.id) {
+            closeDetail()
+          }
+          uni.showToast({ title: '已删除', icon: 'none' })
+        } else {
+          uni.showToast({ title: '删除失败，请重试', icon: 'none' })
+        }
+      } catch {
+        uni.showToast({ title: '网络异常，删除失败', icon: 'none' })
+      }
+    },
+  })
 }
 </script>
 
@@ -614,6 +833,221 @@ function setWarningDismissed(contactId: string, dismissed: boolean) {
 .canvas-retry-text {
   font-size: 26rpx;
   color: #FFFFFF;
+}
+
+/* ==================== 溢出「+N」芯片 ==================== */
+
+.overflow-chip {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  margin-left: -20px;
+  margin-top: -20px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1.5px dashed #94A3B8;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11;
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease;
+}
+
+.overflow-chip:active {
+  transform: scale(0.9);
+}
+
+.overflow-chip-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.overflow-chip-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+/* ==================== 图例 ==================== */
+
+.graph-legend {
+  position: absolute;
+  left: 16rpx;
+  bottom: 12rpx;
+  display: flex;
+  align-items: center;
+  z-index: 15;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 28rpx;
+}
+
+.legend-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  margin-right: 8rpx;
+}
+
+.legend-text {
+  font-size: 20rpx;
+  color: #64748B;
+}
+
+/* ==================== 分组成员浮层 ==================== */
+
+.group-popup-mask {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+.group-popup {
+  width: 100%;
+  max-height: 70vh;
+  background-color: #FFFFFF;
+  border-radius: 32rpx 32rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.group-popup-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 28rpx 100rpx 20rpx 32rpx;
+  border-bottom: 1rpx solid #F1F5F9;
+}
+
+.group-popup-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1F2937;
+  margin-right: 16rpx;
+}
+
+.group-popup-count {
+  font-size: 24rpx;
+  color: #9CA3AF;
+}
+
+.group-popup-close {
+  position: absolute;
+  right: 20rpx;
+  top: 16rpx;
+  padding: 12rpx;
+}
+
+.group-popup-close-text {
+  font-size: 32rpx;
+  color: #94A3B8;
+}
+
+.group-popup-list {
+  max-height: 56vh;
+}
+
+.group-popup-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 32rpx;
+}
+
+.group-popup-item:active {
+  background-color: #F8FAFC;
+}
+
+.gp-rank {
+  width: 44rpx;
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #94A3B8;
+}
+
+.gp-avatar {
+  position: relative;
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+
+.gp-avatar-text {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.gp-badge {
+  position: absolute;
+  top: -2rpx;
+  right: -2rpx;
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  border: 3rpx solid #FFFFFF;
+  box-sizing: border-box;
+}
+
+.gp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gp-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1F2937;
+}
+
+.gp-warn-text {
+  font-size: 22rpx;
+  color: #B45309;
+  margin-top: 4rpx;
+}
+
+.gp-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 16rpx;
+}
+
+.gp-intimacy {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #3B82F6;
+}
+
+.gp-intimacy-label {
+  font-size: 20rpx;
+  color: #9CA3AF;
 }
 
 .list-wrap {

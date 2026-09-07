@@ -49,3 +49,15 @@ export function resumeWarning(contactId: string): Promise<ResumeRes> {
     })
   })
 }
+
+// 删除联系人（后端物理删除 MongoDB contacts 文档）
+export function deleteContact(contactId: string): Promise<{ code: number; data: { deleted: boolean; contactId: string } }> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/relation/contacts/${contactId}`,
+      method: 'DELETE',
+      success: (res) => resolve(res.data as { code: number; data: { deleted: boolean; contactId: string } }),
+      fail: reject,
+    })
+  })
+}

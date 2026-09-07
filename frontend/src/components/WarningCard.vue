@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { GraphWarning } from '@/types/relationGraph'
+import { LEVEL_COLORS } from '@/constants/warningLevel'
 
 const props = defineProps<{
   warning: GraphWarning
@@ -44,13 +45,7 @@ defineEmits<{
   (e: 'resume'): void
 }>()
 
-// 预警级别 → 角标色（与图谱节点角标一致）
-const LEVEL_COLORS: Record<string, string> = {
-  YELLOW: '#FBBF24',
-  ORANGE: '#F97316',
-  RED: '#EF4444',
-}
-
+// 预警级别 → 角标色（统一消费 @/constants/warningLevel，与图谱节点角标一致）
 const levelColor = computed(() => LEVEL_COLORS[props.warning.level] || '#FBBF24')
 
 const typeText = computed(() =>

@@ -30,11 +30,14 @@
           @touchcancel="onTouchEnd(item)"
           @click="onItemClick(item)"
         >
-          <!-- 左侧：评分 -->
+          <!-- 左侧：评分（未评分显示灰色"未评分"占位，不伪造分数） -->
           <view class="score-area">
-            <view class="score-circle">
-              <text class="score-num">{{ item.score ?? '--' }}</text>
+            <view v-if="item.score != null" class="score-circle">
+              <text class="score-num">{{ item.score }}</text>
               <text class="score-label">分</text>
+            </view>
+            <view v-else class="score-circle score-circle--empty">
+              <text class="score-empty-text">未评分</text>
             </view>
           </view>
 
@@ -78,7 +81,8 @@ const MOCK_THEMES = [
   '读书会破冰', '观点交锋', '新书推荐', '小组汇报', '茶话闲谈',
 ]
 const MOCK_PERSONALITIES = ['乐观开朗自来熟', '不善交际慢热', '幽默风趣社牛', '沉稳内敛观察者']
-const MOCK_SCORES = [88, 76, 91, 64, 82, 70, 95, 58, 79, 85, 68, 90, 73, 61, 84]
+// 第 7、14 条为未评分（null），用于演示未评分占位样式
+const MOCK_SCORES: (number | null)[] = [88, 76, 91, 64, 82, 70, null, 58, 79, 85, 68, 90, null, 61, 84]
 const MOCK_COUNTS = [6, 8, 12, 4, 10, 7, 16, 5, 9, 11, 6, 14, 8, 5, 13]
 // 时间从 1 小时前开始，逐条递增（约三周跨度）
 const MOCK_AGE_HOURS = [1, 10, 26, 34, 50, 72, 96, 120, 150, 180, 220, 260, 320, 420, 520]
@@ -212,10 +216,8 @@ onMounted(async () => {
   try {
     const res = await getSessions()
     if (res.code === 0 && res.data && res.data.length > 0) {
-      sessions.value = res.data.map((s) => ({
-        ...s,
-        score: s.score ?? 75,
-      }))
+      // 未评分会话保持 score=null，列表显示"未评分"占位（不伪造分数）
+      sessions.value = res.data
     } else {
       // 后端无数据，使用示例数据
       sessions.value = mockSessions
@@ -343,6 +345,18 @@ const formatTime = (ts: number): string => {
 .score-label {
   font-size: 20rpx;
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* 未评分占位：灰底虚线圈，与已评分蓝圈区分 */
+.score-circle--empty {
+  background: transparent;
+  border: 2rpx dashed #C4CBD4;
+  box-sizing: border-box;
+}
+
+.score-empty-text {
+  font-size: 22rpx;
+  color: #9CA3AF;
 }
 
 /* 右侧信息 */

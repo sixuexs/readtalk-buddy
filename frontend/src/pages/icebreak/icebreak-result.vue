@@ -65,10 +65,10 @@
         </view>
       </view>
 
-      <!-- 重新生成妙计 -->
+      <!-- 返回修改条件（回到生成表单，保留此前填写内容） -->
       <view class="reset-wrap">
         <view class="reset-btn" @tap="handleRegenerate">
-          <text class="reset-btn-text">重新生成妙计</text>
+          <text class="reset-btn-text">返回修改条件</text>
         </view>
       </view>
     </scroll-view>
@@ -290,7 +290,7 @@ function handleRegenerate() {
   color: #bbb;
 }
 
-/* 重新生成按钮 */
+/* 返回修改条件按钮 */
 .reset-wrap {
   padding: 20rpx 30rpx 60rpx;
 }

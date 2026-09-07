@@ -39,7 +39,7 @@
               :class="{ 'mode-chip--active': otherMode === 'select' }"
               @tap="otherMode = 'select'"
             >
-              <text class="mode-chip-text">下拉选择</text>
+              <text class="mode-chip-text">已有名片</text>
             </view>
             <view
               class="mode-chip"
@@ -50,7 +50,7 @@
             </view>
           </view>
 
-          <!-- 下拉选择：已有联系人 / 虚拟人物 -->
+          <!-- 已有名片：从已有联系人 / 虚拟人物中选择 -->
           <view v-if="otherMode === 'select'" class="select-panel">
             <view class="sub-mode-row">
               <view

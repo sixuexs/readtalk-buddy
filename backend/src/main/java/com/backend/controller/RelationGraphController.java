@@ -45,4 +45,10 @@ public class RelationGraphController {
         service.resumeWarning(id);
         return ApiResponse.ok(Map.of("resumed", true));
     }
+
+    // DELETE /api/relation/contacts/{id} — 删除联系人（MongoDB 唯一真相源）
+    @DeleteMapping("/contacts/{id}")
+    public ApiResponse<?> deleteContact(@PathVariable String id) {
+        return ApiResponse.ok(service.deleteContact(id));
+    }
 }

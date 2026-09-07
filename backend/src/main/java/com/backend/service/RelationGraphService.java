@@ -167,4 +167,23 @@ public class RelationGraphService {
         contactRepo.save(doc);
         log.info("联系人 {} 预警冷却已取消，恢复提醒", doc.getName());
     }
+
+    // ==================== 5. 删除联系人 ====================
+
+    /**
+     * 删除联系人（物理删除 MongoDB contacts 文档）。
+     *
+     * P0 决策：MongoDB 是联系人唯一真相源，图谱/破冰/亲密度/预警全链路只读 Mongo，
+     * 删 Mongo 文档即完成业务删除。MySQL contact 表当前无消费方（ContactSavedEvent
+     * 发布链路休眠），残留行不影响功能，留待阶段二收敛时统一清理。
+     * 关联会话的 relatedContactId 成为悬空引用无碍：深度/质量分量按存活联系人
+     * 的会话查询，联系人消失后这些会话自然不再参与任何计算。
+     */
+    public Map<String, Object> deleteContact(String contactId) {
+        ContactDocument doc = contactRepo.findById(contactId)
+                .orElseThrow(() -> new IllegalArgumentException("联系人不存在: " + contactId));
+        contactRepo.deleteById(contactId);
+        log.info("联系人已删除: id={} name={}", contactId, doc.getName());
+        return Map.of("deleted", true, "contactId", contactId);
+    }
 }
