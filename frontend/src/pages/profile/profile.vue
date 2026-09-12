@@ -80,10 +80,9 @@ async function loadProfile() {
 // 功能菜单列表，key 用于区分菜单项点击逻辑
 const menuList = [
   { title: '个人名片', key: 'business-card' },
+  { title: '提升计划', key: 'plan' },
+  { title: '破冰分析', key: 'icebreak' },
   { title: '社交记录', key: 'social-record' },
-  { title: '匿名反馈', key: 'feedback' },
-  { title: '客服', key: 'service' },
-  { title: '设置', key: 'settings' },
   { title: '退出登录', key: 'logout' },
 ]
 
@@ -92,10 +91,22 @@ function handleAvatarClick() {
   uni.navigateTo({ url: '/pages/namecard/namecard' })
 }
 
-// 菜单项点击：个人名片跳转、退出登录弹确认框，其余显示 Toast
+// 菜单项点击：跳转对应功能页；退出登录弹确认框
 function handleMenuClick(item: { title: string; key: string }) {
   if (item.key === 'business-card') {
     uni.navigateTo({ url: '/pages/namecard/namecard' })
+    return
+  }
+  if (item.key === 'plan') {
+    uni.navigateTo({ url: '/pages/plan/plan' })
+    return
+  }
+  if (item.key === 'icebreak') {
+    uni.navigateTo({ url: '/pages/icebreak/icebreak' })
+    return
+  }
+  if (item.key === 'social-record') {
+    uni.switchTab({ url: '/pages/social/social' })
     return
   }
   if (item.key === 'logout') {

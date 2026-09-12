@@ -183,7 +183,8 @@ public class SimulationController {
                 (List<String>) body.getOrDefault("otherInterests", List.of()),
                 (List<String>) body.getOrDefault("otherLabels", List.of()),
                 (String) body.getOrDefault("otherPersonality", ""),
-                (String) body.getOrDefault("context", "初次见面")
+                (String) body.getOrDefault("context", "初次见面"),
+                (String) body.get("contactId")
         );
         return ApiResponse.ok(result);
     }

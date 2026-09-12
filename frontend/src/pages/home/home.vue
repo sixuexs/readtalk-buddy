@@ -66,6 +66,7 @@ import { ref, onMounted, onUnmounted, nextTick, getCurrentInstance } from 'vue'
 import * as echarts from 'echarts'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import FloatingActionButton from '@/components/FloatingActionButton.vue'
+import { BASE_URL } from '@/config'
 // #ifndef H5
 import WxCanvas from '@/utils/wx-canvas'
 // #endif
@@ -83,7 +84,7 @@ let radarChart: echarts.ECharts | null = null
 let lineChart: echarts.ECharts | null = null
 
 // ── API base URL (matches simulation.ts) ──
-const BASE_URL = 'http://localhost:8080'
+// BASE_URL 统一在 @/config 配置
 
 // ── Radar indicator names & API field keys ──
 const RADAR_INDICATORS = [

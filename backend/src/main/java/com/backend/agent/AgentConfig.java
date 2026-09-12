@@ -32,7 +32,7 @@ public class AgentConfig {
     @Value("${deepseek.api.temperature:0.8}")
     private double temperature;
 
-    @Value("${deepseek.api.max-tokens:1024}")
+    @Value("${deepseek.api.max-tokens:2048}")
     private int maxTokens;
 
     /** DeepSeek ChatModel —— 所有 Agent 共享 */

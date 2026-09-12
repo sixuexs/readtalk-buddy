@@ -254,6 +254,14 @@ const otherCard = computed(() => {
   return { interests: [], labels: [], personality: '' }
 })
 
+/** 选中已有联系人时传其 id，后端复用不重复建档；虚拟人物走后端按名字去重 */
+const selectedContactId = computed(() => {
+  if (otherMode.value === 'select' && selectSource.value === 'contact' && contactIndex.value >= 0) {
+    return contacts.value[contactIndex.value]?.id
+  }
+  return undefined
+})
+
 function parseScan(text: string) {
   if (!text) return { interests: [], labels: [], personality: '' }
   try {
@@ -349,6 +357,7 @@ async function handleSubmit() {
       otherLabels: otherCard.value.labels,
       otherPersonality: otherCard.value.personality,
       context: [finalContext.value, extraNote.value.trim()].filter(Boolean).join('；') || '初次见面',
+      contactId: selectedContactId.value,
     }
     // 缓存请求参数，供结果页单类建议刷新复用
     icebreakResultStore.lastReq = req

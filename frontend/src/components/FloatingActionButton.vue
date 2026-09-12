@@ -51,15 +51,19 @@ onUnmounted(() => {
   uni.$off('tab-switch', collapseOpen)
 })
 
-// 子按钮列表：扫码连接、沟通辅助
+// 子按钮列表：扫码连接（沟通辅助功能未上线，暂时隐藏，上线后恢复）
 const subButtons = [
   { key: 'scan', label: '扫码连接', icon: '扫', color: '#4A90D9' },
-  { key: 'assist', label: '沟通辅助', icon: '辅', color: '#5B8DEF' },
 ]
 
-// 子按钮点击：收起菜单并显示 Toast 提示（后续替换为实际跳转逻辑）
+// 子按钮点击：收起菜单并跳转到对应功能页
 function handleSubClick(item: { key: string; label: string }) {
   open.value = false
+  if (item.key === 'scan') {
+    // 扫码连接 → 破冰分析（页面内含扫码名片入口）
+    uni.navigateTo({ url: '/pages/icebreak/icebreak' })
+    return
+  }
   uni.showToast({ title: item.label, icon: 'none' })
 }
 </script>

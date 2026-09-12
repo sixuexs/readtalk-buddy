@@ -6,7 +6,7 @@ import type {
   WeeklyGoalsStatusRes,
 } from '@/types/user'
 
-const BASE_URL = 'http://localhost:8080'
+import { BASE_URL } from '@/config'
 
 /** 获取用户档案 */
 export function getUserProfile(userId: number): Promise<ProfileRes> {

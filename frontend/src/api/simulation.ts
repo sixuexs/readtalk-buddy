@@ -16,7 +16,7 @@ import type {
   VirtualCharacterListRes,
 } from '@/types/simulation'
 
-const BASE_URL = 'http://localhost:8080'
+import { BASE_URL } from '@/config'
 
 // 获取可选的模拟主题与性格配置
 export function getConfig(): Promise<ConfigRes> {

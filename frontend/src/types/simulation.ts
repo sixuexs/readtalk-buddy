@@ -142,6 +142,8 @@ export interface IceBreakReq {
   otherLabels: string[]
   otherPersonality: string
   context: string
+  /** 对方已是已有联系人时传其 id，后端复用不重复建档；虚拟人物/扫码/无 时不传 */
+  contactId?: string
 }
 
 // 破冰分析结果
