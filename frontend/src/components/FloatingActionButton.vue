@@ -1,13 +1,14 @@
 <template>
   <!-- 遮罩层（独立于按钮容器，确保层级在按钮之下） -->
   <view
+    v-if="showFab"
     class="fab-overlay"
     :class="{ 'fab-overlay--visible': open }"
     @click="open = false"
   />
 
   <!-- 按钮容器 -->
-  <view class="fab-container">
+  <view v-if="showFab" class="fab-container">
     <!-- 子按钮 -->
     <view
       v-for="item in subButtons"
@@ -38,6 +39,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+
+// 悬浮球总开关：当前比赛版本整体隐藏（含"扫码连接"），恢复只需改回 true
+const showFab = false
 
 // 悬浮按钮展开/收起状态
 const open = ref(false)

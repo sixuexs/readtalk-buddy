@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, getCurrentInstance } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import * as echarts from 'echarts'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import FloatingActionButton from '@/components/FloatingActionButton.vue'
@@ -172,7 +173,10 @@ async function fetchProfileData(): Promise<{ radar: number[]; trend: { label: st
       url: `${BASE_URL}/api/user/profile?userId=1`,
       method: 'GET',
       success: (res: any) => {
-        const data = res.data
+        // 后端统一响应 { code, data }，画像文档在 data.data —— 缺这层解包会导致
+        // 雷达恒走 fallback、趋势恒空（历史 bug）
+        const body = res.data as { code?: number; data?: Record<string, unknown> } | undefined
+        const data = body?.code === 0 ? body.data : undefined
         if (data && typeof data === 'object') {
           const values = RADAR_INDICATORS.map((ind) => {
             const v = (data as Record<string, unknown>)[ind.key]
@@ -377,12 +381,27 @@ async function initCharts() {
   // #endif
 }
 
+// ── Refresh charts on page show (评分/训练后返回首页自动更新，不必重进小程序) ──
+async function refreshCharts() {
+  // 首次进入由 onMounted 初始化承担；chart 未就绪时跳过
+  if (!radarChart && !lineChart) return
+  const { radar, trend } = await fetchProfileData()
+  trendPoints.value = trend
+  // notMerge=true：在「占位提示 ↔ 真实曲线」间整体切换
+  radarChart?.setOption(buildRadarOption(radar), true)
+  lineChart?.setOption(buildLineOption(), true)
+}
+
 // ── Lifecycle ──
 onMounted(() => {
   // Delay slightly to allow DOM/layout to settle (especially for mini-program canvas)
   setTimeout(() => {
     initCharts()
   }, 120)
+})
+
+onShow(() => {
+  refreshCharts()
 })
 
 onUnmounted(() => {
