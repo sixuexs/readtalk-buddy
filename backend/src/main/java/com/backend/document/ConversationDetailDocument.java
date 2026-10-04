@@ -31,7 +31,11 @@ public class ConversationDetailDocument {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Participant {
-        private Long refId;
+        /**
+         * 对方标识：运行时统一存 MongoDB contacts 的 String id（P0 决策：MongoDB 为联系人唯一真相源）。
+         * 与设计文档 §5 的 BIGINT contact.id 口径不同，MySQL 侧映射见 CommAssistService。
+         */
+        private String refId;
         private String role;
         private String tag;
     }
@@ -43,7 +47,8 @@ public class ConversationDetailDocument {
         private int seq;
         private LocalDateTime ts;
         private String speakerRole;
-        private Long speakerRef;
+        /** 说话人标识：MongoDB contacts 的 String id；speaker_role=user/unknown 时为 null。 */
+        private String speakerRef;
         private String content;
         private String annotation;
     }

@@ -7,11 +7,15 @@ import com.backend.agent.RelationTools;
 import com.backend.agent.UserProfileTools;
 import com.backend.document.VirtualCharacterDocument;
 import com.backend.model.ApiResponse;
+import com.backend.model.ReviewRequest;
 import com.backend.model.SendRequest;
 import com.backend.model.StartRequest;
 import com.backend.repository.VirtualCharacterRepository;
+import com.backend.service.CommAssistService;
 import com.backend.service.SimulationService;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,11 +33,13 @@ public class SimulationController {
     private final RelationTools relationTools;
     private final CommAssistTools commAssistTools;
     private final VirtualCharacterRepository virtualCharacterRepo;
+    private final CommAssistService commAssistService;
 
     public SimulationController(SimulationService service, AgentRegistry registry,
                                 UserProfileTools profileTools, IceBreakTools iceBreakTools,
                                 RelationTools relationTools, CommAssistTools commAssistTools,
-                                VirtualCharacterRepository virtualCharacterRepo) {
+                                VirtualCharacterRepository virtualCharacterRepo,
+                                CommAssistService commAssistService) {
         this.service = service;
         this.registry = registry;
         this.profileTools = profileTools;
@@ -41,6 +47,7 @@ public class SimulationController {
         this.relationTools = relationTools;
         this.commAssistTools = commAssistTools;
         this.virtualCharacterRepo = virtualCharacterRepo;
+        this.commAssistService = commAssistService;
     }
 
     // GET /api/simulation/config
@@ -85,10 +92,18 @@ public class SimulationController {
         return ApiResponse.ok(service.deleteSession(sessionId));
     }
 
-    // POST /api/simulation/score?sessionId=xxx — AI 评分
+    // POST /api/simulation/score?sessionId=xxx — AI 评分（调用/解析失败 → 502 语义，不裸 500，执行协议红线 2）
     @PostMapping("/score")
     public ApiResponse<?> score(@RequestParam String sessionId) {
-        return ApiResponse.ok(service.scoreConversation(sessionId));
+        try {
+            return ApiResponse.ok(service.scoreConversation(sessionId));
+        } catch (RuntimeException e) {
+            String msg = e.getMessage() == null ? "评分失败" : e.getMessage();
+            if (msg.length() > 200) {
+                msg = msg.substring(0, 200);
+            }
+            return new ApiResponse<>(502, Map.of("message", "评分未成功：" + msg));
+        }
     }
 
     // POST /api/simulation/self-review?sessionId=xxx — 保存会后复盘自评
@@ -261,5 +276,44 @@ public class SimulationController {
     public ApiResponse<?> scoreComm(@RequestBody Map<String, String> body) {
         var result = commAssistTools.scorePerformance(body.getOrDefault("sessionId", ""));
         return ApiResponse.ok(result);
+    }
+
+    // ──── 沟通辅助（复盘版）：线下录音转写 + 归属确认复盘 ────
+
+    /**
+     * POST /api/simulation/assist/transcribe — 线下录音转写（multipart/form-data）。
+     *
+     * <p>音频字节仅在内存态持有，转写后即释放：不落盘、不入库（隐私设计）。
+     * 前端须用 mp3/aac 压缩格式、单声道、≤5 分钟。
+     */
+    @PostMapping(value = "/assist/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<?> assistTranscribe(@RequestParam("audio") MultipartFile audio,
+                                           @RequestParam(value = "format", required = false) String format,
+                                           @RequestParam(value = "sampleRate", required = false) Integer sampleRate) {
+        try {
+            byte[] bytes = audio.getBytes();
+            return ApiResponse.ok(commAssistService.transcribe(bytes, format, sampleRate));
+        } catch (Exception e) {
+            return new ApiResponse<>(502, Map.of("message", brief(e.getMessage())));
+        }
+    }
+
+    /**
+     * POST /api/simulation/assist/review — 归属确认后复盘：五维评分 + 三库落库。
+     *
+     * <p>body: {sceneType, relatedContactId?, title?, sentences[], speakerMap{}}
+     */
+    @PostMapping("/assist/review")
+    public ApiResponse<?> assistReview(@RequestBody ReviewRequest req) {
+        try {
+            return ApiResponse.ok(commAssistService.review(req));
+        } catch (RuntimeException e) {
+            return new ApiResponse<>(502, Map.of("message", brief(e.getMessage())));
+        }
+    }
+
+    private static String brief(String msg) {
+        String m = (msg == null || msg.isBlank()) ? "沟通辅助处理失败" : msg;
+        return m.length() > 200 ? m.substring(0, 200) : m;
     }
 }

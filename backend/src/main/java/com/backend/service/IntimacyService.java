@@ -1,6 +1,7 @@
 package com.backend.service;
 
 import com.backend.agent.AgentEvent;
+import com.backend.constant.AssistConstants;
 import com.backend.constant.IntimacyConstants;
 import com.backend.document.ContactDocument;
 import com.backend.document.ConversationDocument;
@@ -185,17 +186,23 @@ public class IntimacyService {
                 if (contact.getInteractions() == null) {
                     contact.setInteractions(new ArrayList<>());
                 }
+                // 线下复盘（origin=offline）是真实沟通，模拟训练不是
+                boolean offline = AssistConstants.ORIGIN_OFFLINE.equals(conv.getOrigin());
                 ContactDocument.InteractionRecord rec = new ContactDocument.InteractionRecord();
-                rec.setType("情景模拟");
-                rec.setSummary("情景模拟训练评分 " + event.score());
+                rec.setType(offline ? "线下沟通" : "情景模拟");
+                rec.setSummary((offline ? "线下沟通复盘评分 " : "情景模拟训练评分 ") + event.score());
                 rec.setTime(LocalDateTime.now());
                 contact.getInteractions().add(rec);
+                if (offline) {
+                    // 真实见面才更新时效信号；模拟不更新 lastContactDays
+                    contact.setLastContactDays(0);
+                }
                 contactRepo.save(contact);
 
                 int score = calculateIntimacy(contact);
                 persistIntimacy(contactId, score);
-                log.info("onScoringCompleted: contact={} intimacy={} (after sim score {})",
-                        contact.getName(), score, event.score());
+                log.info("onScoringCompleted: contact={} intimacy={} (after {} score {})",
+                        contact.getName(), score, offline ? "offline" : "sim", event.score());
             });
         });
     }

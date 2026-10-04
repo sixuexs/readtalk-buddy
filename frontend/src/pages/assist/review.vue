@@ -11,6 +11,7 @@
       <view class="score-card">
         <view class="score-card__header">
           <text class="score-card__title">社交评分</text>
+          <text v-if="isOffline" class="score-card__badge">线下沟通复盘</text>
         </view>
         <view class="score-card__body">
           <view class="score-card__main">
@@ -57,6 +58,28 @@
         </view>
       </view>
 
+      <!-- P2-10 本场焦点对比 -->
+      <view v-if="focusInfo" class="focus-card">
+        <view class="focus-row">
+          <text class="focus-title">🎯 本场焦点：{{ focusInfo.cnName }}</text>
+          <text class="focus-compare">
+            基线 {{ focusInfo.baseline ?? '—' }} → 本场 {{ focusInfo.current ?? '—' }}
+          </text>
+          <text
+            v-if="focusInfo.delta !== null && focusInfo.delta !== undefined"
+            :class="focusInfo.delta >= 0 ? 'focus-delta focus-delta--up' : 'focus-delta focus-delta--down'"
+          >{{ focusInfo.delta >= 0 ? '+' : '' }}{{ focusInfo.delta }}</text>
+        </view>
+        <text v-if="focusInfo.current === null || focusInfo.current === undefined" class="focus-tip">
+          本场未观察到该行为——注意对方的喂球信号，下一场抓住机会
+        </text>
+        <text v-else-if="focusInfo.current < 70" class="focus-tip">还没到达标线（70），趁热再练一场效果最好</text>
+        <text v-else class="focus-tip focus-tip--good">达标！这个动作正在变成你的习惯</text>
+        <view v-if="showFocusAgain" class="focus-again" @tap="trainAgain">
+          <text class="focus-again-text">🔁 再练一场</text>
+        </view>
+      </view>
+
       <!-- AI 评语 -->
       <view class="comment-card">
         <view class="comment-card__header">
@@ -75,6 +98,12 @@
             </view>
           </view>
         </view>
+      </view>
+
+      <!-- P2-10 本场证据卡 -->
+      <view v-if="evaluation.evidence?.length" class="evidence-zone">
+        <text class="evidence-zone-title">本场证据</text>
+        <EvidenceCard v-for="(e, i) in evaluation.evidence" :key="i" :item="e" :hide-link="true" />
       </view>
 
       <!-- 我的状态自评 -->
@@ -131,15 +160,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getHistory, scoreConversation, saveSelfReview } from '@/api/simulation'
-import type { EvaluationSummary } from '@/types/simulation'
+import { getPlanRecommendation } from '@/api/plan'
+import { setSimFocus } from '@/store/simFocus'
+import EvidenceCard from '@/components/plan/EvidenceCard.vue'
+import type { EvaluationSummary, FocusComparison } from '@/types/simulation'
 
 // 预设状态标签（对齐评价体系 self_state 词表）
 const STATE_PRESETS = ['从容', '紧张', '投入', '心累', '超常发挥', '发挥失常', '放松', '被动']
 
 let currentSessionId = ''
+/** 来源：offline = 线下沟通复盘（展示来源标识，模拟专属入口自动隐藏） */
+const isOffline = ref(false)
 
 const loading = ref(false)
 const scoring = ref(false)
@@ -147,12 +181,45 @@ const saving = ref(false)
 const loadError = ref('')
 const score = ref(0)
 const evaluation = ref<EvaluationSummary | null>(null)
+/** P2-10 靶向训练焦点对比（自由训练为 null） */
+const focusInfo = ref<FocusComparison | null>(null)
+
+/** 未达标（无分或 <70）→ 给"再练一场"引导 */
+const showFocusAgain = computed(() => {
+  const f = focusInfo.value
+  if (!f) return false
+  return f.current === null || f.current === undefined || f.current < 70
+})
+
+async function trainAgain() {
+  const f = focusInfo.value
+  if (!f) return
+  try {
+    const res = await getPlanRecommendation(f.subSkill)
+    const rec = res.code === 0 ? res.data.recommendation : null
+    if (!rec) {
+      uni.switchTab({ url: '/pages/simulation/simulation' })
+      return
+    }
+    setSimFocus({
+      focusSubSkill: rec.subSkill,
+      cnName: rec.cnName,
+      theme: rec.theme,
+      personality: rec.personality,
+      prescriptionTaskId: rec.taskId,
+    })
+    uni.switchTab({ url: '/pages/simulation/simulation' })
+  } catch {
+    uni.switchTab({ url: '/pages/simulation/simulation' })
+  }
+}
 
 const selectedStates = ref<string[]>([])
 const selfComment = ref('')
 
 onLoad((query: any) => {
   currentSessionId = query?.sessionId || ''
+  isOffline.value = query?.origin === 'offline'
   if (!currentSessionId) {
     uni.showToast({ title: '参数错误', icon: 'none' })
     return
@@ -175,6 +242,9 @@ async function loadReview() {
         selfComment.value = res.data.selfComment
       }
       // 已有评分直接展示；无评分则自动触发 AI 评分
+      if (res.data.focus) {
+        focusInfo.value = res.data.focus
+      }
       if (res.data.evaluation) {
         score.value = res.data.evaluation.score ?? 0
         evaluation.value = res.data.evaluation
@@ -200,6 +270,7 @@ async function runScore() {
     if (res.code === 0 && res.data) {
       score.value = res.data.score
       evaluation.value = res.data.evaluation
+      focusInfo.value = res.data.focus ?? null
     } else {
       loadError.value = '评分失败，请重试'
     }
@@ -324,6 +395,16 @@ async function handleSave() {
 }
 .score-card__header {
   padding: 24rpx 28rpx 0;
+  display: flex;
+  align-items: center;
+}
+.score-card__badge {
+  font-size: 22rpx;
+  color: #2f855a;
+  background: #e8f8f0;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  margin-left: 16rpx;
 }
 .score-card__title {
   font-size: 30rpx;
@@ -545,5 +626,80 @@ async function handleSave() {
   font-weight: 600;
   color: #fff;
   letter-spacing: 4rpx;
+}
+/* P2-10 焦点对比卡 */
+.focus-card {
+  margin: 0 24rpx 20rpx;
+  background: linear-gradient(135deg, #eef4ff, #f6f0ff);
+  border: 2rpx solid #dbe6ff;
+  border-radius: 16rpx;
+  padding: 22rpx 26rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+.focus-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.focus-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2b4a8f;
+}
+.focus-compare {
+  font-size: 25rpx;
+  color: #555;
+}
+.focus-delta {
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.focus-delta--up {
+  color: #10b981;
+}
+.focus-delta--down {
+  color: #f43f5e;
+}
+.focus-tip {
+  font-size: 22rpx;
+  color: #8a94a6;
+  line-height: 1.5;
+}
+.focus-tip--good {
+  color: #2f855a;
+}
+.focus-again {
+  align-self: flex-start;
+  margin-top: 6rpx;
+  padding: 10rpx 30rpx;
+  border-radius: 30rpx;
+  background: linear-gradient(135deg, #5b8def, #3b6fd4);
+}
+.focus-again:active {
+  opacity: 0.85;
+}
+.focus-again-text {
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* P2-10 证据区 */
+.evidence-zone {
+  margin: 0 24rpx 20rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  padding: 22rpx 26rpx;
+}
+.evidence-zone-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 14rpx;
+  display: block;
 }
 </style>

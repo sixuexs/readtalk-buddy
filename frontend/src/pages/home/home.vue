@@ -62,12 +62,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, getCurrentInstance } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, getCurrentInstance } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import * as echarts from 'echarts'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import FloatingActionButton from '@/components/FloatingActionButton.vue'
 import { BASE_URL } from '@/config'
+import { getPlanCurrent } from '@/api/plan'
 // #ifndef H5
 import WxCanvas from '@/utils/wx-canvas'
 // #endif
@@ -111,10 +112,26 @@ interface FeatureItem {
   action: () => void
 }
 
-const featureItems: FeatureItem[] = [
+/** P3-5 本周处方任务角标（done/total）；处方不可用时静默隐藏 */
+const planBadge = ref('')
+
+async function loadPlanBadge() {
+  try {
+    const res = await getPlanCurrent()
+    const tasks = res.code === 0 ? res.data?.plan?.tasks ?? null : null
+    planBadge.value = tasks && tasks.length
+      ? `${tasks.filter((t) => t.status === 'done').length}/${tasks.length}`
+      : ''
+  } catch {
+    planBadge.value = ''
+  }
+}
+
+const featureItems = computed<FeatureItem[]>(() => [
   {
     key: 'promotion',
     label: '提升计划',
+    subtitle: planBadge.value || undefined,
     iconText: '↑',
     bgColor: '#FFF3E0',
     iconColor: '#FF8A5C',
@@ -160,7 +177,7 @@ const featureItems: FeatureItem[] = [
     iconColor: '#FFAB40',
     action: () => uni.navigateTo({ url: '/pages/namecard/namecard' }),
   },
-]
+])
 
 // ── Line chart（真实数据：scoreHistory 总分趋势，最多 10 条） ──
 const TREND_MAX = 10
@@ -402,6 +419,7 @@ onMounted(() => {
 
 onShow(() => {
   refreshCharts()
+  loadPlanBadge()
 })
 
 onUnmounted(() => {

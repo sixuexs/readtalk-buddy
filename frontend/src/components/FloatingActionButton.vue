@@ -40,8 +40,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 
-// 悬浮球总开关：当前比赛版本整体隐藏（含"扫码连接"），恢复只需改回 true
-const showFab = false
+// 悬浮球总开关：沟通辅助（线下复盘）已上线，恢复显示
+const showFab = true
 
 // 悬浮按钮展开/收起状态
 const open = ref(false)
@@ -55,9 +55,10 @@ onUnmounted(() => {
   uni.$off('tab-switch', collapseOpen)
 })
 
-// 子按钮列表：扫码连接（沟通辅助功能未上线，暂时隐藏，上线后恢复）
+// 子按钮列表
 const subButtons = [
   { key: 'scan', label: '扫码连接', icon: '扫', color: '#4A90D9' },
+  { key: 'assist', label: '沟通辅助', icon: '谈', color: '#43B581' },
 ]
 
 // 子按钮点击：收起菜单并跳转到对应功能页
@@ -66,6 +67,11 @@ function handleSubClick(item: { key: string; label: string }) {
   if (item.key === 'scan') {
     // 扫码连接 → 破冰分析（页面内含扫码名片入口）
     uni.navigateTo({ url: '/pages/icebreak/icebreak' })
+    return
+  }
+  if (item.key === 'assist') {
+    // 沟通辅助 → 线下沟通复盘（录音 → 转写 → 归属确认 → 五维复盘）
+    uni.navigateTo({ url: '/pages/assist/record' })
     return
   }
   uni.showToast({ title: item.label, icon: 'none' })

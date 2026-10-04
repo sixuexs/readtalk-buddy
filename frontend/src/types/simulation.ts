@@ -42,6 +42,8 @@ export interface HistoryRes {
     evaluation?: EvaluationSummary & { score: number }
     selfState?: string
     selfComment?: string
+    /** P2-7/P2-10 靶向训练焦点对比（自由训练场次无此字段） */
+    focus?: FocusComparison
   }
 }
 
@@ -79,6 +81,10 @@ export interface StartSimulationReq {
   personality: string
   /** 练习对象（书友）的 MongoDB contacts id，可选；为空表示纯能力训练 */
   relatedContactId?: string
+  /** P2-7 靶向训练：焦点子技能短名（白名单，非法按自由训练） */
+  focusSubSkill?: string
+  /** P2-7 靶向训练：关联处方任务 id（自动回销用） */
+  prescriptionTaskId?: string
 }
 
 // POST /api/simulation/start 响应体（含 sessionId 与开场白）
@@ -90,6 +96,8 @@ export interface StartSimulationRes {
       content: string
       timestamp: number
     }
+    focusSubSkill?: string | null
+    focusBaseline?: number | null
   }
 }
 
@@ -99,7 +107,18 @@ export interface ScoreRes {
   data: {
     score: number
     evaluation: EvaluationSummary
+    /** P2-7 靶向训练焦点对比（自由训练场次无此字段） */
+    focus?: FocusComparison
   }
+}
+
+/** 焦点对比：baseline/current 可为 null（无基线或本场无该子技能观察机会） */
+export interface FocusComparison {
+  subSkill: string
+  cnName: string
+  baseline: number | null
+  current: number | null
+  delta: number | null
 }
 
 // 评分详情
@@ -112,6 +131,23 @@ export interface EvaluationSummary {
   comment: string
   strengths: string[]
   suggestions: string[]
+  /** P1 子技能分：短名→0-100，null=本场无观察机会（词典见 constants/subSkills.ts） */
+  subScores?: Record<string, number | null>
+  /** P1 证据链：0~4 条原话证据 */
+  evidence?: EvidenceItem[]
+}
+
+/** P1-6 子技能证据项（对齐后端 ConversationDocument.EvidenceItem；后三字段由 /api/user/evidence 附加） */
+export interface EvidenceItem {
+  subSkill: string
+  messageOrder: number
+  quote: string
+  issue: string
+  rewrite: string
+  polarity: 'negative' | 'positive'
+  sessionId?: string
+  theme?: string
+  scoredAt?: string
 }
 
 // 会话摘要 —— 用于社交记录列表

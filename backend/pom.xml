@@ -115,6 +115,16 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!-- Java 21+/25 上 Mockito inline MockMaker 的运行时 self-attach 不可用（且 JDK 正在收紧动态
+                 attach）。按 Mockito 官方文档以 -javaagent 预加载 mockito-core，保证
+                 @SpringBootTest 的 ResetMocksTestExecutionListener 初始化通过。 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar -XX:+EnableDynamicAgentLoading</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
