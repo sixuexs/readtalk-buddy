@@ -1,13 +1,14 @@
 <template>
   <!-- 遮罩层（独立于按钮容器，确保层级在按钮之下） -->
   <view
+    v-if="showFab"
     class="fab-overlay"
     :class="{ 'fab-overlay--visible': open }"
     @click="open = false"
   />
 
   <!-- 按钮容器 -->
-  <view class="fab-container">
+  <view v-if="showFab" class="fab-container">
     <!-- 子按钮 -->
     <view
       v-for="item in subButtons"
@@ -39,6 +40,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 
+// 悬浮球总开关：沟通辅助（线下复盘）已上线，恢复显示
+const showFab = true
+
 // 悬浮按钮展开/收起状态
 const open = ref(false)
 
@@ -51,15 +55,25 @@ onUnmounted(() => {
   uni.$off('tab-switch', collapseOpen)
 })
 
-// 子按钮列表：扫码连接、沟通辅助
+// 子按钮列表
 const subButtons = [
   { key: 'scan', label: '扫码连接', icon: '扫', color: '#4A90D9' },
-  { key: 'assist', label: '沟通辅助', icon: '辅', color: '#5B8DEF' },
+  { key: 'assist', label: '沟通辅助', icon: '谈', color: '#43B581' },
 ]
 
-// 子按钮点击：收起菜单并显示 Toast 提示（后续替换为实际跳转逻辑）
+// 子按钮点击：收起菜单并跳转到对应功能页
 function handleSubClick(item: { key: string; label: string }) {
   open.value = false
+  if (item.key === 'scan') {
+    // 扫码连接 → 破冰分析（页面内含扫码名片入口）
+    uni.navigateTo({ url: '/pages/icebreak/icebreak' })
+    return
+  }
+  if (item.key === 'assist') {
+    // 沟通辅助 → 线下沟通复盘（录音 → 转写 → 归属确认 → 五维复盘）
+    uni.navigateTo({ url: '/pages/assist/record' })
+    return
+  }
   uni.showToast({ title: item.label, icon: 'none' })
 }
 </script>

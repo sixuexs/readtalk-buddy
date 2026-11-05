@@ -5,8 +5,28 @@ import type {
   WeeklyGoalsStatusReq,
   WeeklyGoalsStatusRes,
 } from '@/types/user'
+import type { EvidenceItem } from '@/types/simulation'
 
-const BASE_URL = 'http://localhost:8080'
+import { BASE_URL } from '@/config'
+
+/** GET /api/user/evidence 响应体（P1-5 勘误 #1） */
+export interface EvidenceListRes {
+  code: number
+  data: { items: EvidenceItem[] }
+}
+
+/** 按子技能查历史证据（诊断段下钻用） */
+export function getSubSkillEvidence(subSkill: string, limit = 20): Promise<EvidenceListRes> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${BASE_URL}/api/user/evidence`,
+      method: 'GET',
+      data: { subSkill, limit },
+      success: (res) => resolve(res.data as EvidenceListRes),
+      fail: reject,
+    })
+  })
+}
 
 /** 获取用户档案 */
 export function getUserProfile(userId: number): Promise<ProfileRes> {

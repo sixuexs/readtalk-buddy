@@ -128,6 +128,25 @@ public class ConversationStore {
     }
 
     /**
+     * P2-7 按 id 读取会话原文档（focus 对比等运行时读取用）。
+     */
+    public Optional<ConversationDocument> findConversation(String sessionId) {
+        return repo.findById(sessionId);
+    }
+
+    /**
+     * P2-7 靶向训练：会话创建后挂接焦点字段（子技能 / 基线 / 处方任务 id）。
+     */
+    public void attachFocus(String sessionId, String focusSubSkill, Integer focusBaseline, String prescriptionTaskId) {
+        repo.findById(sessionId).ifPresent(doc -> {
+            doc.setFocusSubSkill(focusSubSkill);
+            doc.setFocusBaseline(focusBaseline);
+            doc.setPrescriptionTaskId(prescriptionTaskId);
+            repo.save(doc);
+        });
+    }
+
+    /**
      * 保存评分结果
      */
     /**

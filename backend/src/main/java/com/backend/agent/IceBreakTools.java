@@ -3,6 +3,7 @@ package com.backend.agent;
 import com.backend.document.ContactDocument;
 import com.backend.repository.ContactRepository;
 import com.backend.repository.UserProfileRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -16,6 +17,7 @@ import java.util.*;
  * 破冰分析 Agent 工具集 —— 扫码连接后的名片分析与破冰建议生成
  */
 @Component
+@Slf4j
 public class IceBreakTools {
 
     private final ContactRepository contactRepo;
@@ -85,6 +87,9 @@ public class IceBreakTools {
 
         try {
             String result = chatClient.prompt().user(prompt).call().content();
+            if (result == null || result.isBlank()) {
+                return Map.of("status", "error", "message", "AI 未返回内容，请重试");
+            }
             String json = stripMarkdown(result);
             @SuppressWarnings("unchecked")
             Map<String, Object> aiResult = new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, Map.class);
@@ -118,7 +123,7 @@ public class IceBreakTools {
         return s;
     }
 
-    @Tool(description = "分析对方名片和当前情境，生成破冰建议。传入双方名片信息、我的心情状态和当前场景类型")
+    @Tool(description = "分析对方名片和当前情境，生成破冰建议。传入双方名片信息、我的心情状态和当前场景类型；若对方已在通讯录中传 contactId 复用，不重复建档")
     public Map<String, Object> analyzeCard(
             @ToolParam(description = "我方的兴趣爱好列表") List<String> myInterests,
             @ToolParam(description = "我方的身份标签") List<String> myLabels,
@@ -126,7 +131,8 @@ public class IceBreakTools {
             @ToolParam(description = "对方的兴趣爱好列表") List<String> otherInterests,
             @ToolParam(description = "对方的身份标签") List<String> otherLabels,
             @ToolParam(description = "对方的性格描述") String otherPersonality,
-            @ToolParam(description = "当前场景，如：聚会、工作会议、初次见面") String context) {
+            @ToolParam(description = "当前场景，如：聚会、工作会议、初次见面") String context,
+            @ToolParam(description = "已有联系人的 MongoDB id（可空）；非空时复用该联系人，不新建") String contactId) {
 
         // 找共同兴趣
         Set<String> commonInterests = new HashSet<>(myInterests);
@@ -179,24 +185,36 @@ public class IceBreakTools {
 
         try {
             String result = chatClient.prompt().user(prompt).call().content();
+            if (result == null || result.isBlank()) {
+                throw new RuntimeException("AI 未返回内容（推理预算可能耗尽），请重试");
+            }
             @SuppressWarnings("unchecked")
-            Map<String, Object> aiResult = new com.fasterxml.jackson.databind.ObjectMapper().readValue(result, Map.class);
+            Map<String, Object> aiResult = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(stripMarkdown(result), Map.class);
 
-            // 保存联系人
-            ContactDocument contact = new ContactDocument();
-            contact.setName(otherLabels.isEmpty() ? "新联系人" : otherLabels.get(0));
-            contact.setRelationType("朋友");
+            // 联系人归位：传了 contactId 复用 → 按名字去重复用 → 全新才建档
+            ContactDocument contact = resolveContact(contactId, otherLabels);
+            boolean isNew = false;
+            if (contact == null) {
+                contact = new ContactDocument();
+                contact.setName(otherLabels.isEmpty() ? "新联系人" : otherLabels.get(0));
+                contact.setRelationType("朋友");
+                contact.setIntimacy(30);  // 初始亲密度
+                contact.setLastContactDays(0);
+                contact.setCreatedAt(LocalDateTime.now());
+                isNew = true;
+            }
+            // 名片信息始终以本次分析为准刷新（虚拟人物第二次选中走 name 复用分支时同样更新）
             contact.setInterests(otherInterests);
             contact.setLabels(otherLabels);
             contact.setPersonality(otherPersonality);
-            contact.setIntimacy(30);  // 初始亲密度
-            contact.setLastContactDays(0);
-            contact.setCreatedAt(LocalDateTime.now());
             contact.setUpdatedAt(LocalDateTime.now());
             ContactDocument saved = contactRepo.save(contact);
 
-            // 发布 ContactAdded 事件 → RelationAgent 可联动（初始化亲密度等）
-            eventPublisher.publishEvent(new AgentEvent.ContactAdded(saved.getId(), saved.getName()));
+            // 仅新联系人发布 ContactAdded 事件 → RelationAgent 可联动
+            if (isNew) {
+                eventPublisher.publishEvent(new AgentEvent.ContactAdded(saved.getId(), saved.getName()));
+            }
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("contactId", saved.getId());
@@ -207,5 +225,16 @@ public class IceBreakTools {
         } catch (Exception e) {
             return Map.of("status", "error", "message", "破冰分析失败: " + e.getMessage());
         }
+    }
+
+    /** 归位联系人：优先按 contactId 查；查不到则按名字去重（防止虚拟人物/扫码重复建档）。包级可见便于测试。 */
+    ContactDocument resolveContact(String contactId, List<String> otherLabels) {
+        if (contactId != null && !contactId.isBlank()) {
+            ContactDocument byId = contactRepo.findById(contactId).orElse(null);
+            if (byId != null) return byId;
+            log.warn("analyzeCard: contactId {} 不存在，回退名字去重", contactId);
+        }
+        String name = otherLabels.isEmpty() ? "新联系人" : otherLabels.get(0);
+        return contactRepo.findFirstByName(name);
     }
 }

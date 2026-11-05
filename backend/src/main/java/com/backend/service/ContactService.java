@@ -44,7 +44,7 @@ public class ContactService {
             entity.setLabels(toJson(doc.getLabels()));
             entity.setUpdatedAt(LocalDateTime.now());
         } else {
-            // 新增：仅设置白名单字段，其他信任 DB 默认
+            // 新增：设置白名单字段 + 审计时间
             entity = new ContactEntity();
             entity.setUserId(userId);
             entity.setName(doc.getName());
@@ -53,9 +53,13 @@ public class ContactService {
             entity.setPersonality(doc.getPersonality());
             entity.setInterests(toJson(doc.getInterests()));
             entity.setLabels(toJson(doc.getLabels()));
+            // created_at / updated_at 均为 NOT NULL：Hibernate INSERT 不会采用 DDL 的 DEFAULT CURRENT_TIMESTAMP，
+            // 不显式赋值会抛 "not-null property references a null or transient value"
+            entity.setCreatedAt(LocalDateTime.now());
+            entity.setUpdatedAt(LocalDateTime.now());
         }
 
-        // 永不触碰：intimacyScore, lastContactTime, warningDismissedAt, deletedAt, id, createdAt
+        // 更新分支永不触碰：intimacyScore, lastContactTime, warningDismissedAt, deletedAt, id, createdAt
         return contactJpaRepository.save(entity);
     }
 

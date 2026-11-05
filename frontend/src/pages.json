@@ -63,6 +63,18 @@
 			}
 		},
 		{
+			"path": "pages/assist/record",
+			"style": {
+				"navigationBarTitleText": "沟通辅助"
+			}
+		},
+		{
+			"path": "pages/assist/confirm",
+			"style": {
+				"navigationBarTitleText": "确认说话人"
+			}
+		},
+		{
 			"path": "pages/assist/review",
 			"style": {
 				"navigationBarTitleText": "会后复盘"

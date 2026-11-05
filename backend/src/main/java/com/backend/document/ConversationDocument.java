@@ -9,6 +9,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Document("conversation")
 @Data
@@ -40,11 +41,22 @@ public class ConversationDocument {
      */
     private Long userId;
 
+    /**
+     * 会话来源：simulation（情景模拟）/ offline（线下沟通复盘）。
+     * 旧文档为 null，按 simulation 处理（前端与统计均容错）。
+     */
+    private String origin;
+
     private Evaluation evaluation;         // 详细评分（维度分 + 评语 + 标签）
 
     /** 会后复盘自评（对应评价体系 self_state / self_comment） */
     private String selfState;              // 交流时的个人状态标签（顿号拼接，如"紧张、投入"）
     private String selfComment;            // 用户自评评语
+
+    /** P1/P2 靶向训练（能力提升重构）：本场焦点子技能短名 + 开练前基线 + 关联处方任务 id；null = 自由训练 */
+    private String focusSubSkill;
+    private Integer focusBaseline;
+    private String prescriptionTaskId;
 
     private List<MessageItem> messages = new ArrayList<>();
 
@@ -67,6 +79,25 @@ public class ConversationDocument {
         private String comment;            // AI 评语
         private List<String> strengths;    // 优点标签
         private List<String> suggestions;  // 改进建议标签
+        /** P1 子技能分：子技能短名 → 0-100；值可为 null（本场无观察机会，词典见 SubSkillConstants） */
+        private Map<String, Integer> subScores;
+        /** P1 证据链：0~4 条原话证据（quote/issue/rewrite） */
+        private List<EvidenceItem> evidence;
+    }
+
+    /**
+     * 子技能证据（P1）：用户原话片段 + 问题标注 + 改写示范。
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class EvidenceItem {
+        private String subSkill;               // 子技能短名（SubSkillConstants 白名单）
+        private Integer messageOrder;          // 原话消息序号（messages[].messageOrder）
+        private String quote;                  // 用户原话逐字片段（≤60 字）
+        private String issue;                  // 问题描述（negative 必填）
+        private String rewrite;                // 更好的说法示范（negative 必填）
+        private String polarity;               // negative | positive
     }
 
     /**

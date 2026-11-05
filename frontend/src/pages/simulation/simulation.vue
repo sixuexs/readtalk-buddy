@@ -85,7 +85,7 @@
       <view
         class="start-btn"
         :class="{ 'start-btn--disabled': !canStart }"
-        @click="handleStart"
+        @click="handleStart()"
       >
         <text class="start-btn-text">开始模拟</text>
       </view>
@@ -100,10 +100,11 @@
   <view v-else class="chat-page">
     <!-- 顶部标题栏：返回 + 所选主题 + 结束按钮 -->
     <view class="title-bar">
-      <view class="title-back" @click="pageState = 'config'">
+      <view class="title-back" @click="backToConfig">
         <text class="title-back-icon">←</text>
       </view>
       <text class="title-text">{{ selectedTheme }}</text>
+      <text v-if="activeFocus" class="title-focus">🎯{{ activeFocus.cnName }}</text>
       <view class="title-end" @click="handleEnd">
         <text class="title-end-text">结束</text>
       </view>
@@ -165,10 +166,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import CustomTabBar from '@/components/CustomTabBar.vue'
 import FloatingActionButton from '@/components/FloatingActionButton.vue'
 import { getConfig, startSimulation, sendMessage } from '@/api/simulation'
 import { getRelationGraph } from '@/api/relation'
+import { takeSimFocus, type SimFocus } from '@/store/simFocus'
 import type { Message } from '@/types/simulation'
 import type { GraphContact } from '@/types/relationGraph'
 
@@ -186,6 +189,23 @@ const canStart = computed(() => !!selectedTheme.value && !!selectedPersonality.v
 // 练习对象（书友，可选）：从关系图谱拉取，选中后该场模拟评分会计入其亲密度
 const contactOptions = ref<GraphContact[]>([])
 const selectedContactId = ref('')
+
+// P2-9 靶向训练：经 simFocus store 直启（tabBar 页无法带 query）
+const activeFocus = ref<SimFocus | null>(null)
+
+// 从提升页跳转而来时消费焦点参数，跳过配置页直达聊天
+onShow(() => {
+  const f = takeSimFocus()
+  if (f) {
+    handleStart(f)
+  }
+})
+
+/** 靶向直启后返回配置页 = 放弃本场焦点引导，回自由配置 */
+function backToConfig() {
+  activeFocus.value = null
+  pageState.value = 'config'
+}
 
 // 随机填充配置
 function randomConfig() {
@@ -241,15 +261,25 @@ onMounted(() => {
   loadContactOptions()
 })
 
-// 开始模拟：调 startSimulation 获取开场白 + sessionId
-async function handleStart() {
-  if (!canStart.value) return
+// 开始模拟：调 startSimulation 获取开场白 + sessionId；focus 非空时为靶向直启
+async function handleStart(focus?: SimFocus) {
+  if (focus) {
+    selectedTheme.value = focus.theme
+    selectedPersonality.value = focus.personality
+    activeFocus.value = focus
+    selectedContactId.value = ''
+  } else {
+    activeFocus.value = null
+    if (!canStart.value) return
+  }
 
   try {
     const res = await startSimulation({
       theme: selectedTheme.value,
       personality: selectedPersonality.value,
       relatedContactId: selectedContactId.value || undefined,
+      focusSubSkill: focus?.focusSubSkill,
+      prescriptionTaskId: focus?.prescriptionTaskId ?? undefined,
     })
     if (res.code === 0) {
       sessionId.value = res.data.sessionId
@@ -552,6 +582,17 @@ function handleEnd() {
   font-size: 34rpx;
   font-weight: 600;
   color: #333333;
+}
+
+/* P2-9 靶向训练焦点徽标 */
+.title-focus {
+  font-size: 22rpx;
+  color: #3b6fd4;
+  background: #ebf0ff;
+  border-radius: 18rpx;
+  padding: 4rpx 16rpx;
+  margin-right: 12rpx;
+  white-space: nowrap;
 }
 
 .title-end {

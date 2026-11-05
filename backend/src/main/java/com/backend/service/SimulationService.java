@@ -26,16 +26,19 @@ public class SimulationService {
     private final ConversationStore store;
     private final ApplicationEventPublisher eventPublisher;
     private final com.backend.repository.ContactRepository contactRepo;
+    private final com.backend.repository.ConversationRepository conversationRepo;
     private final IntimacyService intimacyService;
 
     public SimulationService(ChatClient.Builder chatClientBuilder, ConversationStore store,
                              ApplicationEventPublisher eventPublisher,
                              com.backend.repository.ContactRepository contactRepo,
+                             com.backend.repository.ConversationRepository conversationRepo,
                              IntimacyService intimacyService) {
         this.chatClient = chatClientBuilder.build();
         this.store = store;
         this.eventPublisher = eventPublisher;
         this.contactRepo = contactRepo;
+        this.conversationRepo = conversationRepo;
         this.intimacyService = intimacyService;
     }
 
@@ -59,7 +62,10 @@ public class SimulationService {
     // 开始模拟：构建 system prompt，调用 AI 获取开场白，持久化会话
     public Map<String, Object> startSimulation(StartRequest req) {
         String sessionId = UUID.randomUUID().toString();
-        String systemPrompt = buildSystemPrompt(req.getTheme(), req.getPersonality());
+        // P2-7 靶向训练：焦点校验 → 基线计算 → systemPrompt 注入教练段
+        String focusSubSkill = normalizeFocus(req.getFocusSubSkill());
+        Integer focusBaseline = focusSubSkill == null ? null : computeFocusBaseline(focusSubSkill);
+        String systemPrompt = buildSystemPrompt(req.getTheme(), req.getPersonality(), focusSubSkill);
 
         String greeting = chatClient.prompt()
                 .system(systemPrompt)
@@ -73,9 +79,17 @@ public class SimulationService {
         store.createSession(sessionId, req.getTheme(), req.getPersonality(),
                 req.getRelatedContactId(), systemPrompt, greetingMsg);
 
+        String taskId = req.getPrescriptionTaskId() == null || req.getPrescriptionTaskId().isBlank()
+                ? null : req.getPrescriptionTaskId();
+        if (focusSubSkill != null || taskId != null) {
+            store.attachFocus(sessionId, focusSubSkill, focusBaseline, taskId);
+        }
+
         Map<String, Object> data = new HashMap<>();
         data.put("sessionId", sessionId);
         data.put("greeting", new GreetingReply(greeting, now));
+        data.put("focusSubSkill", focusSubSkill);
+        data.put("focusBaseline", focusBaseline);
         return data;
     }
 
@@ -138,6 +152,9 @@ public class SimulationService {
             evalMap.put("comment", eval.getComment());
             evalMap.put("strengths", eval.getStrengths());
             evalMap.put("suggestions", eval.getSuggestions());
+            // P1-5 透出子技能分与证据链（旧会话为 null，前端兼容）
+            evalMap.put("subScores", eval.getSubScores());
+            evalMap.put("evidence", eval.getEvidence());
             data.put("evaluation", evalMap);
         });
         // 附带复盘自评（如果有）
@@ -145,6 +162,23 @@ public class SimulationService {
             data.put("selfState", review.selfState());
             data.put("selfComment", review.selfComment());
         });
+        // P2-10 附带靶向焦点对比（重访复盘页也可展示）
+        store.findConversation(sessionId)
+                .filter(doc -> doc.getFocusSubSkill() != null)
+                .ifPresent(doc -> {
+                    String fk = doc.getFocusSubSkill();
+                    ConversationDocument.Evaluation ev = doc.getEvaluation();
+                    Integer cur = ev == null || ev.getSubScores() == null ? null : ev.getSubScores().get(fk);
+                    Integer base = doc.getFocusBaseline();
+                    Map<String, Object> focus = new HashMap<>();
+                    focus.put("subSkill", fk);
+                    focus.put("cnName", com.backend.constant.SubSkillConstants.isValid(fk)
+                            ? com.backend.constant.SubSkillConstants.get(fk).cnName() : fk);
+                    focus.put("baseline", base);
+                    focus.put("current", cur);
+                    focus.put("delta", base != null && cur != null ? cur - base : null);
+                    data.put("focus", focus);
+                });
         return data;
     }
 
@@ -194,20 +228,99 @@ public class SimulationService {
     }
 
     // 对会话进行 AI 评分
-    @SuppressWarnings("unchecked")
     public Map<String, Object> scoreConversation(String sessionId) {
         List<ChatMessage> history = store.getMessages(sessionId);
         if (history.isEmpty()) {
             throw new RuntimeException("会话无消息，无法评分");
         }
+        ScoringOutcome outcome = scoreDialogueText(buildDialogueText(history));
+        store.saveScore(sessionId, outcome.score(), outcome.evaluation());
+        // 发布评分完成事件 → UserProfileAgent 等订阅者自动更新
+        eventPublisher.publishEvent(new AgentEvent.ScoringCompleted(sessionId, outcome.score()));
 
-        // 构建对话文本
+        Map<String, Object> response = new HashMap<>();
+        response.put("score", outcome.score());
+        response.put("evaluation", outcome.evaluation());
+
+        // P2-7 焦点对比：仅靶向训练场次透出（baseline 缺失/无分时字段为 null，前端容错）
+        conversationRepo.findById(sessionId)
+                .filter(doc -> doc.getFocusSubSkill() != null)
+                .ifPresent(doc -> response.put("focus", buildFocus(doc, outcome.evaluation())));
+        return response;
+    }
+
+    /** 会话消息 → 评分用对话文本（"我：… / 对方：…"）。 */
+    static String buildDialogueText(List<ChatMessage> history) {
         StringBuilder dialogText = new StringBuilder();
         for (ChatMessage msg : history) {
             String speaker = "other".equals(msg.getRole()) ? "对方" : "我";
             dialogText.append(speaker).append("：").append(msg.getContent()).append("\n");
         }
+        return dialogText.toString();
+    }
 
+    /**
+     * 复用评分核心：任意"我 / 对方"对话文本 → 五维分 + 子技能分 + 证据链。
+     *
+     * <p>只做 LLM 调用与解析，<b>不落库、不发事件</b>；供情景模拟（scoreConversation）
+     * 与线下沟通复盘（CommAssistService）共用，保证两条链路评分口径一致。
+     */
+    @SuppressWarnings("unchecked")
+    public ScoringOutcome scoreDialogueText(String dialogueText) {
+        String scorePrompt = buildScorePrompt(dialogueText);
+
+        String result = chatClient.prompt()
+                .user(scorePrompt)
+                .call()
+                .content();
+        // P1-3 健壮性：推理型模型可能因输出 token 耗尽返回空内容 → 紧凑重试一次
+        if (result == null || result.isBlank()) {
+            log.warn("评分 LLM 返回空内容（疑似推理耗尽输出预算），紧凑重试一次");
+            result = chatClient.prompt()
+                    .user(scorePrompt + "\n注意：不要输出任何思考铺垫，直接输出紧凑 JSON（无 markdown 代码块）。")
+                    .call()
+                    .content();
+        }
+
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> scoreData = mapper.readValue(result, Map.class);
+
+            int totalScore = getIntSafe(scoreData, "totalScore", 50);
+            int clarity = getIntSafe(scoreData, "clarity", 50);
+            int logicality = getIntSafe(scoreData, "logicality", 50);
+            int empathyListening = getIntSafe(scoreData, "empathyListening", 50);
+            int interactivity = getIntSafe(scoreData, "interactivity", 50);
+            int relaxation = getIntSafe(scoreData, "relaxation", 50);
+
+            // Runtime probe: empathyListening is the ONLY dimension where camelCase ≠ snake_case
+            // (empathy_listening). Static prompt check catches the prompt side; this catches AI
+            // format drift — if AI omits the key, getIntSafe silently returns 50.
+            if (empathyListening == 50 && clarity != 50 && logicality != 50
+                    && interactivity != 50 && relaxation != 50) {
+                log.warn("empathyListening=50 but other 4 dims vary — likely AI omitted 'empathyListening' key, fell back to default 50");
+            }
+
+            ConversationDocument.Evaluation evaluation = new ConversationDocument.Evaluation();
+            evaluation.setClarity(clarity);
+            evaluation.setLogicality(logicality);
+            evaluation.setEmpathyListening(empathyListening);
+            evaluation.setInteractivity(interactivity);
+            evaluation.setRelaxation(relaxation);
+            evaluation.setComment((String) scoreData.get("comment"));
+            evaluation.setStrengths((List<String>) scoreData.get("strengths"));
+            evaluation.setSuggestions((List<String>) scoreData.get("suggestions"));
+            // P1 子技能层：任何失败降级为 null/空，绝不阻断 5 维主分落库（执行协议红线 2）
+            evaluation.setSubScores(parseSubScores(scoreData));
+            evaluation.setEvidence(parseEvidence(scoreData.get("evidence")));
+            return new ScoringOutcome(totalScore, evaluation);
+        } catch (Exception e) {
+            throw new RuntimeException("评分解析失败: " + e.getMessage(), e);
+        }
+    }
+
+    /** 构建评分 prompt（5 维锚定 + 子技能观察 + 证据提取）。 */
+    private String buildScorePrompt(String dialogueText) {
         String scorePrompt = String.format("""
                 你是一位专业的社交沟通能力评估专家。请根据以下对话内容，评估"我"的社交沟通能力。
 
@@ -286,6 +399,23 @@ public class SimulationService {
                 - 90-100：从容、立场清晰、不靠道歉铺垫、敢表露脆弱、被质疑不防御
                 边界：停顿填充词归 clarity；道歉词本身只可能是本维信号。仅输出整数。
 
+                ## 子技能观察（输出 subScores，共 16 项）
+                在给出五维分后，逐项评估以下子技能（0-100 整数）。硬性规则：
+                1. 本场对话未出现该子技能的观察机会（如对方全程没有质疑 → non_defensive）→ 该项输出 null，禁止硬打分；
+                2. 判据服从前文"横切规则"：道歉/退缩词只计入 less_hedging；堆叠"然后"计入 filler_control；
+                   空洞附和（对对对/嗯嗯 无内容）不给 paraphrase、empathic_followup、turn_giving 正向分；
+                3. 某维度下子技能的均值应与该维度分大体一致，偏差超过 25 分时须在 comment 中说明主因；
+                4. 防刷分同样适用：套话模板（如机械的"听起来你很难过"但语境不符）不给高分。
+
+                %s
+
+                ## 证据提取（输出 evidence，0~4 条）
+                - 每个低于 60 分且有观察机会的子技能，至少给 1 条 negative 证据；positive 高光证据最多 1 条；
+                - quote：用户原话的逐字片段（不超过60字）；messageOrder：该原话在对话中的消息序号（"我："的第几条，从1计）；
+                - issue：一句话说明问题（结合对方上一句的状态，指出用户回应的缺失）；
+                - rewrite：更好的说法示范（第一人称、可直接照说、贴合当时语境）；negative 必填，positive 置空字符串；
+                - polarity："negative" 或 "positive"。
+
                 ## 输出格式
                 请以 JSON 格式返回评分结果，包含以下字段：
                 - clarity: 表达清晰度 (0-100)
@@ -297,84 +427,107 @@ public class SimulationService {
                 - comment: 评语 (50-100字)，给出整体评价和改进方向
                 - strengths: 优点标签数组，1-3个关键词
                 - suggestions: 改进建议标签数组，1-3个关键词
+                - subScores: 对象，键为 16 个子技能短名（见上文"子技能观察"），值为 0-100 整数或 null
+                - evidence: 数组，0~4 个对象 {subSkill, messageOrder, quote, issue, rewrite, polarity}
 
                 只返回JSON，不要输出其他内容。""",
-                dialogText.toString());
+                dialogueText, com.backend.constant.SubSkillConstants.promptBlock());
 
-        // Sanity: verify empathyListening key won't silently fallback to 50
-        // This is the only dimension where camelCase != snake_case (empathy_listening)
+        // Sanity: verify dimension keys won't silently fallback to 50
+        // (probe checks the key name in the output-format section, quoted form is not required)
         final String promptText = scorePrompt;
-        if (!promptText.contains("\"empathyListening\"")) {
+        if (!promptText.contains("empathyListening")) {
             log.warn("empathyListening key missing from AI prompt — AI responses will default to 50");
         }
-        if (!promptText.contains("\"clarity\"") || !promptText.contains("\"logicality\"") || 
-            !promptText.contains("\"interactivity\"") || !promptText.contains("\"relaxation\"")) {
+        if (!promptText.contains("clarity") || !promptText.contains("logicality") ||
+            !promptText.contains("interactivity") || !promptText.contains("relaxation")) {
             log.warn("One or more 5D keys missing from AI prompt schema");
         }
-
-        String result = chatClient.prompt()
-                .user(scorePrompt)
-                .call()
-                .content();
-
-        // 解析 JSON 结果
-        try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            Map<String, Object> scoreData = mapper.readValue(result, Map.class);
-
-            int totalScore = getIntSafe(scoreData, "totalScore", 50);
-            int clarity = getIntSafe(scoreData, "clarity", 50);
-            int logicality = getIntSafe(scoreData, "logicality", 50);
-            int empathyListening = getIntSafe(scoreData, "empathyListening", 50);
-            int interactivity = getIntSafe(scoreData, "interactivity", 50);
-            int relaxation = getIntSafe(scoreData, "relaxation", 50);
-
-            // Runtime probe: empathyListening is the ONLY dimension where camelCase ≠ snake_case
-            // (empathy_listening). Static prompt check above catches the prompt side;
-            // this catches AI format drift — if AI omits the key, getIntSafe silently returns 50.
-            if (empathyListening == 50 && clarity != 50 && logicality != 50
-                    && interactivity != 50 && relaxation != 50) {
-                log.warn("empathyListening=50 but other 4 dims vary — likely AI omitted 'empathyListening' key, fell back to default 50");
-            }
-
-            String comment = (String) scoreData.get("comment");
-
-            List<String> strengths = (List<String>) scoreData.get("strengths");
-            List<String> suggestions = (List<String>) scoreData.get("suggestions");
-
-            // 持久化评分
-            ConversationDocument.Evaluation evaluation = new ConversationDocument.Evaluation();
-            evaluation.setClarity(clarity);
-            evaluation.setLogicality(logicality);
-            evaluation.setEmpathyListening(empathyListening);
-            evaluation.setInteractivity(interactivity);
-            evaluation.setRelaxation(relaxation);
-            evaluation.setComment(comment);
-            evaluation.setStrengths(strengths);
-            evaluation.setSuggestions(suggestions);
-            store.saveScore(sessionId, totalScore, evaluation);
-
-            // 发布评分完成事件 → UserProfileAgent 等订阅者自动更新
-            eventPublisher.publishEvent(new AgentEvent.ScoringCompleted(sessionId, totalScore));
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("score", totalScore);
-            response.put("evaluation", evaluation);
-            return response;
-
-        } catch (Exception e) {
-            throw new RuntimeException("评分解析失败: " + e.getMessage(), e);
-        }
+        return scorePrompt;
     }
 
-    // 根据主题和性格构建角色 system prompt
+    /** 焦点对比卡片数据（P2-7 靶向训练）。 */
+    private Map<String, Object> buildFocus(ConversationDocument doc, ConversationDocument.Evaluation evaluation) {
+        String fk = doc.getFocusSubSkill();
+        Integer cur = evaluation.getSubScores() == null ? null : evaluation.getSubScores().get(fk);
+        Integer base = doc.getFocusBaseline();
+        Map<String, Object> focus = new HashMap<>();
+        focus.put("subSkill", fk);
+        focus.put("cnName", com.backend.constant.SubSkillConstants.isValid(fk)
+                ? com.backend.constant.SubSkillConstants.get(fk).cnName() : fk);
+        focus.put("baseline", base);
+        focus.put("current", cur);
+        focus.put("delta", base != null && cur != null ? cur - base : null);
+        return focus;
+    }
+
+    /** 评分产出（总分 + 明细），不落库、不发事件。 */
+    public record ScoringOutcome(int score, ConversationDocument.Evaluation evaluation) {}
+
+    // 根据主题和性格构建角色 system prompt（P2-7：带靶向焦点时追加教练段）
     private String buildSystemPrompt(String theme, String personality) {
-        return String.format(
+        return buildSystemPrompt(theme, personality, null);
+    }
+
+    private String buildSystemPrompt(String theme, String personality, String focusSubSkill) {
+        String base = String.format(
                 "你正在参与一个名为「%s」的情景模拟对话。" +
                 "你的性格设定是：%s。" +
                 "请完全按照这个角色设定来回复，保持自然、流畅的对话风格。每次回复不超过100个字。",
                 theme, personality
         );
+        if (focusSubSkill == null) {
+            return base;
+        }
+        return base + coachSection(focusSubSkill);
+    }
+
+    /** 教练注入段（设计文档 §4.1 模板全文）。包级可见便于单测。 */
+    static String coachSection(String focusSubSkill) {
+        com.backend.constant.SubSkillConstants.SubSkill s =
+                com.backend.constant.SubSkillConstants.get(focusSubSkill);
+        if (s == null) {
+            return "";
+        }
+        return String.format("""
+
+                【本场训练焦点】用户正在刻意练习「%s」（%s）。
+                你的配合要求：
+                1. 在对话中自然制造 2~3 次该行为的练习机会，喂球方式：%s；
+                2. 若进行约 6 轮后用户始终未出现该行为，可轻微引导一次（如流露更明显的情绪、直接询问看法），但绝不点破"你在练习"；
+                3. 保持你的性格设定不变，喂球必须贴合人设、不出戏。
+                """, s.cnName(), s.definition(), s.feed());
+    }
+
+    /** 焦点校验：白名单外按自由训练处理（红线 2：不报错只降级）。包级可见便于单测。 */
+    static String normalizeFocus(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        if (com.backend.constant.SubSkillConstants.isValid(raw)) {
+            return raw;
+        }
+        log.warn("收到未知 focusSubSkill: {}，按自由训练处理", raw);
+        return null;
+    }
+
+    /** 焦点基线 = 近 3 场已评分会话该子技能均值（无含分场次 → null）。 */
+    private Integer computeFocusBaseline(String focusSubSkill) {
+        List<Integer> vals = new ArrayList<>();
+        for (ConversationDocument d : conversationRepo.findAllByOrderByCreatedAtDesc()) {
+            if (vals.size() >= 3) {
+                break;
+            }
+            if (d.getEvaluation() == null || d.getEvaluation().getSubScores() == null) {
+                continue;
+            }
+            Integer v = d.getEvaluation().getSubScores().get(focusSubSkill);
+            if (v != null) {
+                vals.add(v);
+            }
+        }
+        return vals.isEmpty() ? null
+                : (int) Math.round(vals.stream().mapToInt(Integer::intValue).average().orElse(0));
     }
 
     /** 从 Map 中安全提取 int 值，缺失或非数字时返回默认值并记录警告 */
@@ -383,5 +536,83 @@ public class SimulationService {
         if (val instanceof Number n) return n.intValue();
         log.warn("Missing dimension: {} in AI response, defaulting to {}", key, defaultVal);
         return defaultVal;
+    }
+
+    // ──── P1 子技能层宽容解析（设计文档 §2.2；包级可见便于单测） ────
+
+    /**
+     * 解析 subScores：白名单 + clamp[0,100]；缺失/非数/显式 null → 该键值为 null。
+     * 恒返回 16 键全在的 Map（形状统一，聚合端免判空）。未知键 log.warn（键漂移探针，仿 empathyListening）。
+     */
+    @SuppressWarnings("unchecked")
+    static Map<String, Integer> parseSubScores(Map<String, Object> scoreData) {
+        try {
+            Object raw = scoreData == null ? null : scoreData.get("subScores");
+            Map<String, Object> sub = raw instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+            for (String k : sub.keySet()) {
+                if (!com.backend.constant.SubSkillConstants.isValid(k)) {
+                    log.warn("subScores 出现白名单外的键（AI 键漂移）: {}", k);
+                }
+            }
+            Map<String, Integer> result = new java.util.LinkedHashMap<>();
+            for (com.backend.constant.SubSkillConstants.SubSkill s : com.backend.constant.SubSkillConstants.ALL) {
+                Object v = sub.get(s.key());
+                result.put(s.key(), v instanceof Number n ? Math.max(0, Math.min(100, n.intValue())) : null);
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("subScores 解析失败，降级为全 null: {}", e.getMessage());
+            Map<String, Integer> fallback = new java.util.LinkedHashMap<>();
+            for (com.backend.constant.SubSkillConstants.SubSkill s : com.backend.constant.SubSkillConstants.ALL) {
+                fallback.put(s.key(), null);
+            }
+            return fallback;
+        }
+    }
+
+    /**
+     * 解析 evidence：非 List → 空；逐条丢弃坏项（subSkill 非法 / quote 缺失），
+     * quote 截断 ≤60，messageOrder 缺 → 0，polarity 非 positive → negative；最多 4 条。
+     */
+    static List<ConversationDocument.EvidenceItem> parseEvidence(Object raw) {
+        List<ConversationDocument.EvidenceItem> items = new ArrayList<>();
+        try {
+            if (!(raw instanceof List<?> list)) {
+                return items;
+            }
+            for (Object o : list) {
+                if (items.size() >= com.backend.constant.SubSkillConstants.EVIDENCE_MAX) {
+                    break;
+                }
+                if (!(o instanceof Map<?, ?> m)) {
+                    continue;
+                }
+                String subSkill = evidStr(m.get("subSkill"));
+                if (!com.backend.constant.SubSkillConstants.isValid(subSkill)) {
+                    continue;
+                }
+                String quote = evidStr(m.get("quote"));
+                if (quote.isEmpty()) {
+                    continue;
+                }
+                if (quote.length() > com.backend.constant.SubSkillConstants.QUOTE_MAX_LEN) {
+                    quote = quote.substring(0, com.backend.constant.SubSkillConstants.QUOTE_MAX_LEN);
+                }
+                Integer order = m.get("messageOrder") instanceof Number n ? n.intValue() : 0;
+                String polarity = evidStr(m.get("polarity"));
+                if (!"positive".equals(polarity) && !"negative".equals(polarity)) {
+                    polarity = "negative";
+                }
+                items.add(new ConversationDocument.EvidenceItem(
+                        subSkill, order, quote, evidStr(m.get("issue")), evidStr(m.get("rewrite")), polarity));
+            }
+        } catch (Exception e) {
+            log.warn("evidence 解析失败，降级为已收集部分/空: {}", e.getMessage());
+        }
+        return items;
+    }
+
+    private static String evidStr(Object v) {
+        return v == null ? "" : String.valueOf(v).trim();
     }
 }

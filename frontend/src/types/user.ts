@@ -28,6 +28,14 @@ export interface ProfileRes {
   data: UserProfile
 }
 
+/** P3 徽章达成记录（对齐后端 BadgeRecord） */
+export interface BadgeRecord {
+  subSkill: string
+  level: number
+  achievedAt: string
+  lastUpgradedAt?: string
+}
+
 /** 评分历史记录（GET /api/user/profile 的 scoreHistory 元素） */
 export interface ProfileScoreRecord {
   sessionId: string
@@ -52,6 +60,13 @@ export interface AbilityProfile {
   avgRelaxation: number
   overallScore: number
   totalSessions: number
+  // P1-4 子技能聚合 / 徽章 / streak（旧文档无值时为 undefined）
+  subSkillAverages?: Record<string, number | null>
+  subSkillSampleCount?: Record<string, number>
+  badges?: BadgeRecord[]
+  streakDays?: number
+  bestStreak?: number
+  lastActiveDate?: string
   // AI 评估 + 提升计划
   assessment: string
   topStrengths: string[]
@@ -59,6 +74,7 @@ export interface AbilityProfile {
   improvementPlan: string
   weeklyGoals: string[]
   weeklyGoalsStatus: boolean[]
+  weeklyGoalSubmissions?: GoalSubmission[]
   scoreHistory: ProfileScoreRecord[]
 }
 
@@ -67,10 +83,24 @@ export interface AbilityProfileRes {
   data: AbilityProfile
 }
 
+/** P0-3 打卡附言提交项 */
+export interface GoalSubmissionInput {
+  index: number
+  text: string
+}
+
+/** P0-3 打卡附言记录 */
+export interface GoalSubmission {
+  index: number
+  text: string
+  at: string
+}
+
 /** PUT /api/user/profile/weekly-goals 请求/响应体 */
 export interface WeeklyGoalsStatusReq {
   userId: number
   status: boolean[]
+  submissions?: GoalSubmissionInput[]
 }
 
 export interface WeeklyGoalsStatusRes {
@@ -78,5 +108,7 @@ export interface WeeklyGoalsStatusRes {
   data: {
     saved: boolean
     weeklyGoalsStatus: boolean[]
+    weeklyGoalSubmissions?: GoalSubmission[]
+    message?: string
   }
 }

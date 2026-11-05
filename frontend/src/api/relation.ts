@@ -1,6 +1,6 @@
 import type { GraphRes, AdviceRes, AdviceMode, DismissRes, ResumeRes } from '@/types/relationGraph'
 
-const BASE_URL = 'http://localhost:8080'
+import { BASE_URL } from '@/config'
 
 // 获取关系图谱数据（contacts + warnings）
 export function getRelationGraph(): Promise<GraphRes> {
