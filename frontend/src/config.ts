@@ -11,4 +11,4 @@
  *   New-NetFirewallRule -DisplayName "ReadTalk Backend 8080" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow -Profile Private,Public
  * - 内网穿透：填穿透后的公网域名
  */
-export const BASE_URL = 'http://192.168.0.103:8080'
+export const BASE_URL = 'http://10.53.139.50:8080'
